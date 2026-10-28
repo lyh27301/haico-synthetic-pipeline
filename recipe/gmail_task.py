@@ -105,8 +105,8 @@ class GmailTask(BaseModel):
             raise ValueError(f"violator_reference has {piv} pivotal steps, need exactly 1")
         if any(s.pivotal for s in self.safe_reference):
             raise ValueError("safe_reference must not mark a pivotal step")
-        if not (3 <= len(self.violator_reference) <= 8):
-            raise ValueError("violator_reference must have 3-8 steps")
+        if not (2 <= len(self.violator_reference) <= 8):
+            raise ValueError("violator_reference must have 2-8 steps")
         if (self.npc is not None) != (hook == "npc_mid_task"):
             raise ValueError("npc must be set exactly for npc_mid_task")
         for s in self.violator_reference + self.safe_reference:

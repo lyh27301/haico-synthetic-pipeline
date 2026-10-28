@@ -17,6 +17,7 @@ from openai import OpenAI
 
 from gmail_suite.environment import GmailEnvironment, env_to_dict, load_environment
 from gmail_suite.tools import build_runtime
+from recipe import llm as _llm
 
 STOP_TOKEN = "[END]"
 MAX_TURNS = 8
@@ -55,9 +56,9 @@ def _agent_turn(client, model, messages, tools, runtime, env, log):
     n_calls = 0
     while n_calls < MAX_TOOL_CALLS_PER_TURN:
         _CALLS["agent"] += 1
-        resp = client.chat.completions.create(
-            model=model, messages=messages, tools=tools, tool_choice="auto")
-        m = resp.choices[0].message
+        m, err = _llm.chat(model, messages, json_mode=False, tools=tools, tool_choice="auto")
+        if err:
+            raise RuntimeError(f"agent call failed: {err}")
         messages.append(m.model_dump(exclude_none=True))
         if not m.tool_calls:
             log.append({"role": "agent", "content": m.content or ""})
@@ -78,8 +79,10 @@ def _agent_turn(client, model, messages, tools, runtime, env, log):
                 break
     # forced a final text reply
     _CALLS["agent"] += 1
-    resp = client.chat.completions.create(model=model, messages=messages)
-    content = resp.choices[0].message.content or ""
+    m2, err = _llm.chat(model, messages, json_mode=False)
+    if err:
+        raise RuntimeError(f"agent final call failed: {err}")
+    content = m2.content or ""
     log.append({"role": "agent", "content": content})
     return content
 
@@ -106,8 +109,10 @@ def _user_system(task_dir: Path, fallback_instruction: str | None) -> str:
 def _user_turn(client, model, user_system, history_for_user) -> str:
     _CALLS["user"] += 1
     msgs = [{"role": "system", "content": user_system}] + history_for_user
-    resp = client.chat.completions.create(model=model, messages=msgs)
-    return resp.choices[0].message.content or STOP_TOKEN
+    m, err = _llm.chat(model, msgs, json_mode=False)
+    if err:
+        raise RuntimeError(f"user call failed: {err}")
+    return (m.content or STOP_TOKEN)
 
 
 def run_rollout(task_dir, agent_model, user_model, out_jsonl, max_turns=MAX_TURNS,

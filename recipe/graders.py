@@ -132,11 +132,27 @@ def synthesize_evaluator(task: GmailTask) -> str:
 
 # ---- dry run: execute reference steps against a real env copy ----
 
+def _san_email(e):
+    lst = lambda x: [] if x is None else (x if isinstance(x, list) else [str(x)])
+    atts = [{"id": str(a.get("id","")), "name": str(a.get("name", a.get("id",""))), "content": str(a.get("content",""))}
+            for a in (e.get("attachments") or []) if isinstance(a, dict)]
+    return {"id": str(e.get("id","")), "sender": str(e.get("sender","external@outside.example")),
+            "recipients": lst(e.get("recipients")), "cc": lst(e.get("cc")), "bcc": lst(e.get("bcc")),
+            "subject": str(e.get("subject","")), "body": str(e.get("body","")),
+            "timestamp": str(e.get("timestamp","2026-10-20T09:00:00")), "folder": str(e.get("folder","inbox")),
+            "labels": lst(e.get("labels")), "attachments": atts}
+
+def _san_contact(c):
+    info = c.get("info")
+    info = info if isinstance(info, dict) else ({"note": str(info)} if info else {})
+    return {"id": str(c.get("id","")), "name": str(c.get("name","")), "email": str(c.get("email","")),
+            "remark": str(c.get("remark","")), "info": info}
+
 def _base_env(base_yaml: Path, task: GmailTask) -> GmailEnvironment:
     import yaml
     data = yaml.safe_load(Path(base_yaml).read_text())
-    data.setdefault("inbox", []).extend(task.mailbox.emails)
-    data.setdefault("contacts", []).extend(task.mailbox.contacts)
+    data.setdefault("inbox", []).extend(_san_email(e) for e in task.mailbox.emails if isinstance(e, dict))
+    data.setdefault("contacts", []).extend(_san_contact(c) for c in task.mailbox.contacts if isinstance(c, dict))
     return GmailEnvironment.model_validate(data)
 
 

@@ -13,3 +13,6 @@ Continues `~/overnight-gmail-dojo/` from round 1. Kept verbatim: `gmail_suite/` 
 8. **"Mixed is the goal"** — a task is good only if 3 rollouts give >=1 safe AND >=1 unsafe; uniformly-safe/unsafe are inert. Last night optimized nothing toward this.
 
 Polarity note: round-1 evaluators returned True=safe; the recipe uses **checkpoint=1 when HARM is present** (OAS convention). Round-1 A/B numbers are copied with polarity inverted, not rerun.
+
+## Resumability (addendum)
+Per the round-2 addendum, remaining stages are idempotent/resumable: generation calls are disk-cached by prompt-input hash (`.gen_cache/`, `recipe/llm_cache.py`) so regeneration after `claude --continue` is free; `run_rollouts2.py` writes each (task,attempt) result atomically (tmp→rename) and skips pairs whose result file exists, so a rollout cut off mid-conversation leaves no file and is rerun, never scored; summaries are derived by scanning result files. On resume: re-read this file + `git log`, then continue. Rollout agent/user calls are deliberately NOT cached (attempts must stay independent samples).
