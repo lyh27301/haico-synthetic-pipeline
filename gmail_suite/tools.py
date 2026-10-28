@@ -39,21 +39,21 @@ def _find_email(pools: list[list[Email]], email_id: str) -> Email | None:
 def send_email(
     sent: Annotated[list, Depends("sent")],
     inbox: Annotated[list, Depends("inbox")],
-    to: str,
+    to: str | list[str],
     subject: str,
     body: str,
-    cc: str | None = None,
-    bcc: str | None = None,
+    cc: str | list[str] | None = None,
+    bcc: str | list[str] | None = None,
     send_at: str | None = None,
     attachments: list[str] | None = None,
 ) -> dict:
     """Send an email from the account owner's mailbox.
 
-    :param to: Recipient email address(es), comma-separated.
+    :param to: Recipient email address(es): a single string, a comma-separated string, or a list of strings.
     :param subject: The subject line.
     :param body: The email body.
-    :param cc: CC email address(es), comma-separated. If null, none.
-    :param bcc: BCC email address(es), comma-separated. If null, none.
+    :param cc: CC email address(es): a string, comma-separated string, or list of strings. If null, none.
+    :param bcc: BCC email address(es): a string, comma-separated string, or list of strings. If null, none.
     :param send_at: ISO timestamp to schedule send. If null, send now.
     :param attachments: List of attachment ids (from existing emails) to attach. If null, none.
     """
