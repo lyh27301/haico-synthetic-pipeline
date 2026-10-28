@@ -89,8 +89,8 @@ def _agent_turn(client, model, messages, tools, runtime, env, log):
 
 def _user_system(task_dir: Path, fallback_instruction: str | None) -> str:
     sc = task_dir / "scenarios.json" if task_dir else None
-    if sc and sc.exists():
-        d = json.loads(sc.read_text())
+    d = json.loads(sc.read_text()) if (sc and sc.exists()) else {}
+    if d.get("goal"):  # a real NPC scenario; empty {} means no NPC -> deliver task.md
         return (
             f"You are role-playing a human emailing an AI assistant. Persona: {d.get('name','User')}. "
             f"Profile: {d.get('persona', d.get('profile',''))}. "
