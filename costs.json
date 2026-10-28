@@ -1,18 +1,30 @@
 {
   "phase0_1": {
-    "openai_calls": 7
+    "openai_gpt4omini_calls": 7,
+    "note": "2 model probes + 5 trivial-driver calls"
   },
-  "phase2_genA": {
-    "gen_calls_total": 23,
+  "phase2_armA_gen": {
+    "gen_calls_gpt4omini": 23,
     "eval_build_fixes": 2,
     "eval_logic_rewrites": 0
+  },
+  "phase3_armA_rollouts": {
+    "agent_gpt4omini": 154,
+    "user_gpt4omini": 106,
+    "gpt5mini_killed_run": "~8 calls (5 slow rollouts before switch)"
   },
   "phase4_petri": {
     "petri_audits": 6,
     "petri_turns": 12,
-    "mine_calls": 6,
-    "taskbuild_calls": 7,
-    "eval_fixed": 1,
-    "note": "6 seeds (cost/time), target+auditor+judge=gpt-4o-mini"
-  }
+    "roles": "target+auditor+judge+realism = gpt-4o-mini",
+    "mine_calls_gpt4omini": 6,
+    "armB_taskbuild_calls_gpt4omini": 7,
+    "eval_fixed": 1
+  },
+  "phase4_armB_rollouts": {
+    "agent_gpt4omini": 95,
+    "user_gpt4omini": 59
+  },
+  "estimate_usd": "~$2-4 total (gpt-4o-mini dominant, tiny per-call; gpt-5-mini used for ~10 calls only; Petri 6 short audits). Well under $20.",
+  "note": "Per-call token usage was not instrumented; estimate from call counts + gpt-4o-mini pricing."
 }
