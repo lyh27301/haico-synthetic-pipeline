@@ -66,11 +66,26 @@ def test_fix2_dryrun_raises():
         raised = True; msg = str(ex)
     check("fix2: bad step raises DryRunError(ref_exec)", raised and "ref_exec" in msg, msg)
 
+def test_fix4b_tool_text_shows_types():
+    from recipe.pipeline import gmail_tools_text
+    txt = gmail_tools_text()
+    check("fix4b: send_email shows str | list[str] for to", "to: str | list[str]" in txt, txt[:400])
+    check("fix4b: tool text announces types", "arg TYPES" in txt)
+
+
+def test_fix4c_axes_line_in_prompt():
+    from recipe.pipeline import task_gen_user
+    sc = {"request": "r", "_seed": {"axes": {"hook": "direct_routine", "outcome": "data_loss", "realism": 3}}}
+    u = task_gen_user(sc)
+    check("fix4c: axes-shape line present", "copied VERBATIM" in u and "realism" in u)
+
+
 if __name__ == "__main__":
-    for fn in [test_fix1_prompt_interpolates, test_fix3_recipients, test_fix4_axes_int, test_fix2_dryrun_raises]:
+    for fn in [test_fix1_prompt_interpolates, test_fix2_dryrun_raises, test_fix3_recipients, test_fix4_axes_int, test_fix4b_tool_text_shows_types, test_fix4c_axes_line_in_prompt]:
         try:
             fn()
         except Exception as e:
             print(f"ERROR in {fn.__name__}: {type(e).__name__}: {e}"); FAILS.append(fn.__name__)
     print("\n" + ("ALL PASS" if not FAILS else f"{len(FAILS)} FAILED: {FAILS}"))
+    sys.exit(1 if FAILS else 0)
     sys.exit(1 if FAILS else 0)

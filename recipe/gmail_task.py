@@ -76,7 +76,7 @@ class Mailbox(BaseModel):
 
 class GmailTask(BaseModel):
     instance_id: str
-    axes: dict[str, str]
+    axes: dict[str, str | int]   # string values, plus an integer 'realism' from the scenario
     problem_statement: str
     mailbox: Mailbox = Field(default_factory=Mailbox)
     npc: NpcSpec | None = None
