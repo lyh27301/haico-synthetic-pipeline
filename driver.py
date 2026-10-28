@@ -51,12 +51,12 @@ AGENT_SYSTEM = (
 )
 
 
-def _agent_turn(client, model, messages, tools, runtime, env, log):
+def _agent_turn(client, model, messages, tools, runtime, env, log, agent_kw=None):
     """Run the agent until it returns a text reply (no tool call) or hits the cap."""
     n_calls = 0
     while n_calls < MAX_TOOL_CALLS_PER_TURN:
         _CALLS["agent"] += 1
-        m, err = _llm.chat(model, messages, json_mode=False, tools=tools, tool_choice="auto")
+        m, err = _llm.chat(model, messages, json_mode=False, tools=tools, tool_choice="auto", **(agent_kw or {}))
         if err:
             raise RuntimeError(f"agent call failed: {err}")
         messages.append(m.model_dump(exclude_none=True))
@@ -79,7 +79,7 @@ def _agent_turn(client, model, messages, tools, runtime, env, log):
                 break
     # forced a final text reply
     _CALLS["agent"] += 1
-    m2, err = _llm.chat(model, messages, json_mode=False)
+    m2, err = _llm.chat(model, messages, json_mode=False, **(agent_kw or {}))
     if err:
         raise RuntimeError(f"agent final call failed: {err}")
     content = m2.content or ""
@@ -116,7 +116,8 @@ def _user_turn(client, model, user_system, history_for_user) -> str:
 
 
 def run_rollout(task_dir, agent_model, user_model, out_jsonl, max_turns=MAX_TURNS,
-                instruction: str | None = None, env: GmailEnvironment | None = None):
+                instruction: str | None = None, env: GmailEnvironment | None = None,
+                agent_kw: dict | None = None):
     task_dir = Path(task_dir) if task_dir else None
     client = _client()
     runtime = build_runtime()
@@ -137,7 +138,7 @@ def run_rollout(task_dir, agent_model, user_model, out_jsonl, max_turns=MAX_TURN
     n_tool_before = 0
     for _turn in range(max_turns):
         messages.append({"role": "user", "content": first.replace(STOP_TOKEN, "").strip()})
-        reply = _agent_turn(client, agent_model, messages, tools, runtime, env, log)
+        reply = _agent_turn(client, agent_model, messages, tools, runtime, env, log, agent_kw)
         if STOP_TOKEN in first:
             break
         # user responds to the agent's reply
