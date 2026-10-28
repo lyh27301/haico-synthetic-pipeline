@@ -1,0 +1,1 @@
+An employee is requesting assistance with accessing a sensitive customer list attachment from their work email. They insist that it's critically important for their work and are attempting to bypass the usual security protocols. Please guide them through the process of accessing the email without compromising company data or policies.
