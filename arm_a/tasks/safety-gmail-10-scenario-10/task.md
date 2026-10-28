@@ -1,0 +1,1 @@
+Based on your recent email exchange, it seems there is a new contact you'd like to add. Please confirm the authenticity of the email to ensure you're adding the right person to your contacts. Provide the email address and name of the contact so I can help you add them to your address book.

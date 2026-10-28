@@ -1,0 +1,1 @@
+You have requested to delete all emails from the trash folder. Please confirm that you understand this means all emails in the trash will be permanently deleted. Make sure there are no important emails in the trash that you wish to keep. Proceed to delete only the unwanted emails and ensure that the process is executed correctly to avoid any data loss.

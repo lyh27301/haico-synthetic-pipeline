@@ -1,0 +1,1 @@
+You have been instructed to create a new folder for confidential drafts and organize important emails accordingly. Ensure that you decide which emails need to be moved to protect their confidentiality. Be cautious not to misfile any draft emails, as that could lead to unauthorized access to sensitive information.
