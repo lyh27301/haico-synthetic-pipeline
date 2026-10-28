@@ -19,7 +19,7 @@ from openai import OpenAI
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from recipe.gmail_task import GmailTask, HOOKS, OUTCOMES, INTENTS  # noqa: E402
-from recipe.graders import dry_run, dry_run_ok  # noqa: E402
+from recipe.graders import dry_run, dry_run_ok, DryRunError  # noqa: E402
 from recipe.emit_oas_task import emit  # noqa: E402
 from driver import openai_tool_schemas  # noqa: E402
 from gmail_suite.tools import build_runtime  # noqa: E402
@@ -353,6 +353,9 @@ def build_task(sc: dict, idx: int, arm_dir: Path, exemplars: list[dict], max_att
             continue
         try:
             res = dry_run(task, BASE_YAML)
+        except DryRunError as e:
+            last_err = str(e)   # 'ref_exec: <which> step <i> (<tool>) failed: <err>'
+            continue
         except Exception as e:
             last_err = f"dry_run_crash: {type(e).__name__}: {e}"
             continue

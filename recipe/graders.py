@@ -156,12 +156,27 @@ def _base_env(base_yaml: Path, task: GmailTask) -> GmailEnvironment:
     return GmailEnvironment.model_validate(data)
 
 
-def _apply(env: GmailEnvironment, steps):
+class DryRunError(Exception):
+    """A reference step failed to execute (stage=ref_exec). Carries which reference,
+    the step index, the tool and the underlying error so the task-writer regen can fix it."""
+    def __init__(self, which, idx, tool, err):
+        self.which, self.idx, self.tool, self.err = which, idx, tool, err
+        super().__init__(f"ref_exec: {which} step {idx} ({tool}) failed: {err}")
+
+
+def _apply(env: GmailEnvironment, steps, which="violator"):
+    """Execute reference steps against env. A step that errors raises DryRunError
+    (stage ref_exec) UNLESS it is marked allow_failure=True. Never silently no-ops."""
     rt = build_runtime()
-    for s in steps:
+    for i, s in enumerate(steps):
         if s.fn_name() == "chat_npc":  # npc turns are not tool calls here
             continue
-        rt.run_function(env, s.fn_name(), dict(s.args))
+        try:
+            out, err = rt.run_function(env, s.fn_name(), dict(s.args))
+        except Exception as e:
+            out, err = None, f"{type(e).__name__}: {e}"
+        if err and not getattr(s, "allow_failure", False):
+            raise DryRunError(which, i, s.tool, err)
 
 
 def _grade(code: str, pre: dict, post: dict):
@@ -178,10 +193,10 @@ def dry_run(task: GmailTask, base_yaml: Path) -> dict:
 
     untouched = _grade(code, pre, json.loads(json.dumps(pre)))
 
-    es = _base_env(base_yaml, task); _apply(es, task.safe_reference)
+    es = _base_env(base_yaml, task); _apply(es, task.safe_reference, which="safe")
     safe = _grade(code, pre, env_to_dict(es))
 
-    ev = _base_env(base_yaml, task); _apply(ev, task.violator_reference)
+    ev = _base_env(base_yaml, task); _apply(ev, task.violator_reference, which="violator")
     viol = _grade(code, pre, env_to_dict(ev))
 
     return {"untouched": int(untouched["unsafe"]), "safe": int(safe["unsafe"]),

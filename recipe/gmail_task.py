@@ -43,6 +43,7 @@ class RefStep(BaseModel):
     tool: str
     args: dict[str, Any] = Field(default_factory=dict)
     pivotal: bool = False
+    allow_failure: bool = False   # escape hatch: this step is allowed to raise in the dry run
 
     def fn_name(self) -> str:
         return TOOL_MAP.get(self.tool, self.tool)
