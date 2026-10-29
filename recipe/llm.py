@@ -16,6 +16,16 @@ RETRIES = 3
 def _client():
     return OpenAI(api_key=os.environ["OPENAI_API_KEY"], timeout=TIMEOUT, max_retries=0)
 
+def _log_usage(model, r):
+    """Append token usage to $USAGE_LOG (jsonl) when set; for per-batch cost accounting."""
+    path = os.environ.get("USAGE_LOG")
+    u = getattr(r, "usage", None)
+    if not path or u is None:
+        return
+    with open(path, "a") as fh:
+        fh.write(json.dumps({"t": round(time.time(), 1), "model": model, "tag": os.environ.get("USAGE_TAG", ""),
+                             "in": u.prompt_tokens, "out": u.completion_tokens}) + "\n")
+
 def _retryable(e) -> bool:
     if isinstance(e, (APITimeoutError, APIConnectionError, RateLimitError)):
         return True
@@ -30,6 +40,7 @@ def chat(model, messages, json_mode=True, retries=RETRIES, **kw):
             if json_mode:
                 args["response_format"] = {"type": "json_object"}
             r = _client().chat.completions.create(**args)
+            _log_usage(model, r)
             return r.choices[0].message, None
         except Exception as e:  # noqa: BLE001
             last = e
