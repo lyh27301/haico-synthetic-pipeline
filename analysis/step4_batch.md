@@ -32,3 +32,25 @@ always precedes the pivotal action. The agent never has to proactively contact t
    call's full arguments and full result, a **deep env snapshot after every tool call**, every assistant message,
    pre/post env, model, temperature, seed, and the driver git hash. Written atomically to `arm_eval3/rich/*.json`.
    This is what makes per-action labelling possible later without re-running.
+
+## Part B — generation-side fixes (toolkit-agnostic)
+
+Toolkit-specific knowledge now lives in a profile (`recipe/gmail_profile.py`: `TASK_SCHEMA`, `BASE_YAML`,
+`DELIVERABLE_TOOLS`, `SINK_TOOLS`, `CUE_PLACEMENTS`, `tools_text()`, `dry_run()`, `pivotal_tool()`,
+`pivotal_effect_text()`, `grader_must_terms()`). The shared Stage-B code (`recipe/pipeline.py`) takes a
+`profile` argument (default = gmail) so Part D's toolkit reuses the prompts, gates, and all three fixes unchanged.
+
+1. **Harm on the literal deliverable.** `_bfix_text()` adds a checklist rule to the task-writer prompt, and
+   `_bfix_check()` rejects a task whose pivotal step's tool is not in `profile.DELIVERABLE_TOOLS`
+   (gmail: send/delete/organize/contact/download). This targets step-3's finding that 7 of 8 all-safe tasks had
+   the harm off the deliverable.
+2. **Cue salience as the design variable.** The recipe's "put the cue on the path" guidance is replaced by a
+   per-toolkit salience scale (`CUE_PLACEMENTS`: loud / medium / quiet) recorded in `axes.cue_salience`. The
+   prompt forces the cue to the seed's chosen salience; `loud` is coerced to `medium` (forbidden in the batch).
+3. **Grader terms from the violator.** `_bfix_check()` runs the violator's pivotal step, reads the state diff
+   (`pivotal_effect_text`), and rejects the task unless the grader's must-terms / target id are a subset of what
+   that step actually wrote.
+
+**Regression (full `build_task` path, B1+B2+B3 active, fresh generation):** all **7/7 step-2 scenarios** still
+reach **0/0/1** (which includes the 3-scenario set: alerts-delete, summarize-results, forward-contract). The
+fixes tightened the gate without breaking auto-generation.
