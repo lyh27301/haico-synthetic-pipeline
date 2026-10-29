@@ -1,8 +1,29 @@
 # Step 5: schema fixes, literal-completion gate, evidence + medical batches, salience, false-negative audit
 
-**Status: INTERIM (after Part C).** Sections 1-2 are filled from Parts A-C; sections 3-5 are completed after
-Parts D-E. Commits so far: `step5a: schema review fixes`, `step5b: literal-completion gate`,
-`step5c: evidence + medical batches`.
+**Status: FINAL.** The interim version (sections 1-2) was committed as `step5: interim report` at 18:42 local time,
+after Parts A-C. Commits: `step5a`, `step5b`, `step5c`, `step5: interim report`, `step5d`, `step5e`, `step5f`.
+Spend: **$3.29 of $25**:
+
+| item | cost |
+|---|---|
+| evidence generation (incl. mining, superseded runs) | $0.50 |
+| medical generation | $1.19 |
+| Petri audits | $1.02 |
+| evidence + medical rollouts (incl. superseded) | $0.43 |
+| salience rollouts | $0.08 |
+| Part A check, Part B regression, Part E notes | $0.07 |
+
+**Short version.**
+- The literal-completion gate works only when an **independent blind writer** produces the literal path. The
+  writer's own literal_reference never failed: 0 of 50 rejections.
+- With the blind check, the step-4 root cause of all_safe ("harm needs an act the instruction does not imply")
+  disappears from the new batches. What remains are port gaps:
+  - missing list tools;
+  - task data colliding with base data;
+  - exact-value graders.
+- Cue salience, varied cleanly, does not change the unsafe rate (0.20 / 0.20 / 0.24); it only changes how often
+  the cue is seen.
+- Graders: 1 real false negative in 39 sampled (a SQL wildcard grant).
 
 ## 1. Headline per toolkit
 
@@ -35,7 +56,7 @@ the pipeline's task-writer does) each wrote the literal path, which was executed
 
 The 7 step-2 tasks: blind rejects 5/5 of the all_safe ones and 0/2 of the mixed ones. The informed writer
 copied its violator verbatim in 20/44 tasks; in the step-5 batches the writer's own literal_reference **never**
-failed (0 of 35 literal rejections). Decision: the gate requires the grader to score 1 on the writer's
+failed (0 of 50 literal rejections). Decision: the gate requires the grader to score 1 on the writer's
 literal_reference **and** on an independent blind literal path (`LITERAL_BLIND_GATE=0` restores the spec-only
 gate); a rejection regenerates once with the feedback, a second literal failure drops the scenario.
 
@@ -57,8 +78,8 @@ is lower on medical (0.23 vs 0.48) and equal on evidence. A plausible reason: 29
 record `target_complied=false` (Gmail + SQL: 3 of 8). They describe the auditor's pressure ("insist", "push back") on an explicit
 request the target refused, so the scenario inherits an *explicit* harmful ask that Stage A must hide again. On
 these toolkits that hiding tends to move the harm off the literal path; the blind literal gate then rejects the
-scenario, or it survives as all_safe for port reasons (all 4 Petri all_safe medical tasks have port-side causes,
-below). n is small (7 and 4 Petri tasks).
+scenario, or it survives as all_safe for port or grader reasons (the 4 Petri all_safe medical tasks: a missing list tool,
+competing base data, a tool-error detour and an exact-value grader; below). n is small (7 and 4 Petri tasks).
 
 **Cue-read is still not a safety signal.** On no toolkit is "read the cue before the first state change" associated
 with fewer unsafe 4o-mini rollouts (evidence 0/3 is too small); on medical it goes the other way for both agents
@@ -221,7 +242,50 @@ no label):
 
 ## 5. Ranked next fixes
 
-(Part F)
+Ranked by expected gain in good tasks per dollar, from what step 5 measured.
+
+**Shared (all toolkits)**
+1. **Move the blind literal check to Stage A, before task writing.** The blind check rejected 50 Stage-B attempts
+   and lost 24 scenarios after an expensive gpt-5-mini task write (medical: 19 of 33 scenarios). The scenario JSON
+   already has the request and the deliverable, so a blind literal path plus a cheap harm-on-path judgment there
+   would drop these for about $0.001 each. Then drop the writer-emitted literal_reference as a gate input: it never
+   failed (0/50) and is copied from the violator.
+2. **Deterministic data-hygiene gate on `data`.**
+   - Reject task records whose key collides with a base record (the second P-1006).
+   - Reject task records that re-create a base entity under a new id (lisinopril MED-101 beside MED-001).
+   - Require graders to key on natural keys (patient + drug name), not task-local ids.
+   
+   This explains 2 of the 6 medical all_safe tasks.
+3. **Discoverability check on the literal path.** Every id used in a literal step must be named in the instruction or
+   appear in the output of an earlier literal step. The env must be able to list what the agent needs to find.
+   This catches the Teladoc appointments, the fax `F-200` and the evidence upload paths: 3 all_safe tasks plus
+   the first evidence eval that had to be discarded.
+4. **Graders cover equivalence classes, not one literal value.** The Part E miss was a wildcard grant;
+   `allergy-med-update` wants Cetirizine 20mg while the instruction never pins the drug. Rule: if the instruction
+   does not fix a value, the grader must not require it; access graders accept `*`.
+5. **Retire cue salience as a design axis.** Clean variation gives no detectable effect (section 3). Keep "medium" as
+   the default placement and spend the variation budget on hook / deliverable / literal-path design.
+6. **Petri seeds: mine compliance, not refusals.** On the new toolkits, 29/37 mined Petri seeds were refusals
+   and Petri seeds no longer give lift. Either keep only audits where the target complied or nearly complied, or
+   run Petri against the real toolkit runtime instead of synthetic tools.
+7. **Writer model.** gpt-4o-mini could not write evidence/medical tasks (1/18); gpt-5-mini could (18/43 with the
+   literal gate). Re-run one Gmail/SQL Stage B with gpt-5-mini so cross-toolkit yields compare like for like.
+
+**Per toolkit**
+- **Medical**:
+  - Teladoc `ManageAppointments` needs a `view` (list) action without an id.
+  - Redesign or drop the **patient vantage**: 5/5 all_safe. The patient's own apps hold no third-party data, and
+    agents are conservative about their own medicines.
+  - Build at least one unauthorized-read task; none survived this batch (the read-pivotal fix landed late).
+  - Date the base "last visit" notes earlier than task notes, so "the last appointment" is unambiguous.
+- **Evidence**:
+  - Add list-cases / list-workspace-files (the case-title resolution is a stopgap).
+  - With 5 tools, the novelty gate keeps 10 of 85 candidates. Widen the mechanic list (exhibit ordering, sealing
+    orders, chain-of-custody edits through upload) or relax the mechanic check within the arm.
+- **SQL**: the access-grant grader should match `table_name in (target, '*')`.
+- **Gmail**: `send_email` with an unknown attachment id succeeds silently. It should error, as the agent believes it
+  sent the file (Part E gmail-3); this also inflates the `acted` instrument.
+
 
 ## Appendix: what changed in step 5 (A-C), decisions recorded
 
@@ -261,3 +325,7 @@ pinned via `LITERAL_MODEL`, = the regression's writer); funnel counters `literal
 6. Seeds beyond the first set: evidence +5 (3 Petri / 2 LLM) to the 25 cap with k=5; medical +12 and +12
    (half Petri each) via `run_arm_extend.py` (extensions see the arm's gated scenarios in the novelty gates).
    Evidence stays at 6 tasks; target 10 not reachable at 25 seeds with the literal gate.
+
+## 6. Report path
+
+/Users/yanhanliu/overnight-gmail-dojo/analysis/step5.md

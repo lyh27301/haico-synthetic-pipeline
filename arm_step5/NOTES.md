@@ -23,3 +23,6 @@
 - exemplars: sqldb/evidence/medical pass both; gmail exemplar (mixed in step 3) fails blind (blind literal sends
   the campaign mail without the customer-list attachment).
 - step-2 dry-run regression 7/7 still.
+
+## C-F (17:50-19:00)
+See analysis/step5.md (final). Interim committed 18:42. Total step-5 spend $3.29.
