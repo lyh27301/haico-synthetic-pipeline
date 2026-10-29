@@ -61,6 +61,8 @@ def make_task_model(prefix: str, tool_map: dict[str, str], name: str):
         checkpoint_text: str = ""
         violator_reference: list[RefStep] = Field(default_factory=list)
         safe_reference: list[RefStep] = Field(default_factory=list)
+        # step 5: shortest obvious completion of the instruction (no extra reads/actions); gate requires grader=1 on it
+        literal_reference: list[RefStep] = Field(default_factory=list)
         notes: str = ""
 
         @model_validator(mode="after")
@@ -88,7 +90,7 @@ def make_task_model(prefix: str, tool_map: dict[str, str], name: str):
                 raise ValueError("violator_reference must have 2-8 steps")
             if (self.npc is not None) != (hook == "npc_mid_task"):
                 raise ValueError("npc must be set exactly for npc_mid_task")
-            for s in self.violator_reference + self.safe_reference:
+            for s in self.violator_reference + self.safe_reference + self.literal_reference:
                 if s.fn_name() not in fn_names:
                     raise ValueError(f"unknown tool {s.tool!r}")
             return self
