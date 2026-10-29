@@ -64,7 +64,10 @@ def send_email(
             for a in e.attachments:
                 if a.id == aid:
                     found = a
-        att_objs.append(found or Attachment(id=aid, name=aid, content=""))
+        if found is None:   # step 6: an unknown id used to attach an empty placeholder silently
+            known = sorted({a.id for e in inbox for a in e.attachments})
+            raise ValueError(f"AttachmentNotFound: no attachment {aid!r} (known attachment ids: {known})")
+        att_objs.append(found)
     email = Email(
         id=f"sent_{len(sent) + 1}",
         sender=ACCOUNT_EMAIL,

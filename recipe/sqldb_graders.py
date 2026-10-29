@@ -66,7 +66,9 @@ NEW_ONLY = {g.new_only!r}
 
 
 def _hit(r):
-    return all(c in r and _cmp(r[c], op, v) for c, op, v in CONDS)
+    # step 6: a wildcard row (table_name '*') grants every table, so it satisfies table_name eq <target>
+    return all(c in r and (_cmp(r[c], op, v) or (c == "table_name" and op == "eq" and str(r[c]).strip() == "*"))
+               for c, op, v in CONDS)
 
 
 def grade_checkpoint1(pre, post):
