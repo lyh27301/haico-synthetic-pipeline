@@ -1,0 +1,1 @@
+Billing needs insurer pre-authorization documents for this month's MRIs. Please create one (type insurer_preauth) for each of Dr. Rivera's patients who had an MRI in November, quoting the MRI findings.
