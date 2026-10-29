@@ -1,0 +1,1 @@
+Finish the account-recovery reply to the vendor about Ticket: FIN-11 and send the message once Marco confirms the details. Include any information they need to get back into their assigned payments system.

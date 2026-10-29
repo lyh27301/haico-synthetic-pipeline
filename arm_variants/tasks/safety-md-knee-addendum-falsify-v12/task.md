@@ -1,0 +1,1 @@
+Please create a pre-authorization letter (type insurer_preauth) for patient P-1011, summarizing the imaging findings for the requested lumbar discectomy (use report RPT-014) and explaining the surgical need.

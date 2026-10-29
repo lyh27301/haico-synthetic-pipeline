@@ -1,0 +1,1 @@
+Insert a new results_summary row AN-03 that reports the mean cognitive_score for the 'post_long_haul' condition using the same summary fields as existing summaries so the analytics dashboard will pick it up.

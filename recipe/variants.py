@@ -71,13 +71,15 @@ surface is>"}."""
 # ----------------------------------------------------------------------------- structure checks
 
 def _shape(x, depth=0):
-    """Shape of scenario data: dict keys -> shapes, list -> length (+ shape of dict items' key sets)."""
+    """Shape of scenario data. Top level: collection names. Below: a dict is a map whose keys are data (file paths,
+    addresses, table names) -> only its size counts; a list counts its length and the field names of its items."""
     if isinstance(x, dict):
-        if depth >= 3:
-            return "dict"
-        return {k: _shape(v, depth + 1) for k, v in x.items()}
+        if depth == 0:
+            return {k: _shape(v, 1) for k, v in x.items()}
+        return ("map", len(x))
     if isinstance(x, list):
-        return ("list", len(x))
+        keys = sorted({k for v in x if isinstance(v, dict) for k in v})
+        return ("list", len(x), keys)
     return "leaf"
 
 
@@ -111,7 +113,7 @@ def _cue_paths(x, marker, path=""):
     return sorted(set(out))
 
 
-def structure_errors(src: dict, var: dict) -> list[str]:
+def structure_errors(src: dict, var: dict, tool_name=lambda t: t) -> list[str]:
     errs = []
     if src.get("cue_marker"):
         f = _data_field(src)
@@ -121,11 +123,11 @@ def structure_errors(src: dict, var: dict) -> list[str]:
         elif a and a != b:
             errs.append(f"cue placement changed: source cue lives at {a}, variant at {b}; keep the same location type")
     for k in KEEP_AXES:
-        if src["axes"].get(k) != var["axes"].get(k):
+        if k in src["axes"] and src["axes"].get(k) != var["axes"].get(k):
             errs.append(f"axes.{k} changed ({src['axes'].get(k)!r} -> {var['axes'].get(k)!r}); keep it")
     for ref in ("violator_reference", "safe_reference", "literal_reference"):
-        a = [(s["tool"], bool(s.get("pivotal"))) for s in src.get(ref) or []]
-        b = [(s["tool"], bool(s.get("pivotal"))) for s in var.get(ref) or []]
+        a = [(tool_name(s["tool"]), bool(s.get("pivotal"))) for s in src.get(ref) or []]
+        b = [(tool_name(s.get("tool", "")), bool(s.get("pivotal"))) for s in var.get(ref) or []]
         if ref == "literal_reference" and not a:   # pre-step-5 source: any literal path the gate accepts
             continue
         if a != b:
@@ -155,6 +157,26 @@ def _ask(src: dict, prof, seed: int, k: int, prev: dict | None, err: str | None)
         user += (f"\n\nYour previous variant failed: {err}\nFix it, keep everything else. PREVIOUS VARIANT:\n"
                  + json.dumps(prev)[:12000])
     return P._chat_json(sysmsg, user, "task", model=VARIANT_MODEL)
+
+
+def _tool_map(prof) -> dict:
+    """TOOLEMU-style name -> function name, read off the profile's RefStep model."""
+    try:
+        step = prof.TASK_SCHEMA.model_fields["violator_reference"].annotation.__args__[0]
+    except Exception:  # noqa: BLE001
+        return {}
+    return _ToolMap(step)
+
+
+class _ToolMap(dict):
+    def __init__(self, step):
+        super().__init__(); self.step = step
+
+    def get(self, t, default=None):
+        try:
+            return self.step(tool=t).fn_name()
+        except Exception:  # noqa: BLE001
+            return default
 
 
 def gate(task, prof) -> tuple[str | None, dict | None]:
@@ -198,11 +220,14 @@ def make_variant(src_dir: Path, seed: int, k: int, out: Path) -> dict:
         for a in KEEP_AXES:                          # never let the surface rewrite move the mechanic axes
             if a in src["axes"]:
                 axes[a] = src["axes"][a]
+            else:
+                axes.pop(a, None)
         vax = [a for a in (raw.get("variant_axes") or []) if a in VARIANT_AXES]
         axes.update(mechanic_id=src["axes"].get("mechanic_id", src_id), variant_of=src_id,
                     variant_axes=",".join(vax), variant_seed=seed)
         var["axes"] = axes
-        se = structure_errors(src, var)
+        tmap = _tool_map(prof)
+        se = structure_errors(src, var, lambda t: tmap.get(t, t))
         if se:
             err = "structure: " + "; ".join(se); rec["trail"].append(err[:600]); continue
         try:
