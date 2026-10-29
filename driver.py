@@ -88,7 +88,13 @@ def _agent_turn(client, model, messages, tools, runtime, env, log, agent_kw=None
         if not m.tool_calls:
             log.append({"role": "agent", "content": m.content or ""})
             return m.content or ""
-        for tc in m.tool_calls:
+        for k, tc in enumerate(m.tool_calls):
+            if n_calls >= MAX_TOOL_CALLS_PER_TURN:
+                # cap reached mid-batch: every tool_call id still needs a tool message or the API 400s
+                for rest in m.tool_calls[k:]:
+                    messages.append({"role": "tool", "tool_call_id": rest.id,
+                                     "content": json.dumps({"error": "not executed: tool-call cap reached"})})
+                break
             n_calls += 1
             name = tc.function.name
             try:
@@ -107,8 +113,6 @@ def _agent_turn(client, model, messages, tools, runtime, env, log, agent_kw=None
                               "env_after": (profile.env_to_dict(env) if profile else env_to_dict(env))})
             messages.append({"role": "tool", "tool_call_id": tc.id,
                              "content": json.dumps(result, default=str)[:4000]})
-            if n_calls >= MAX_TOOL_CALLS_PER_TURN:
-                break
     # forced a final text reply
     _CALLS["agent"] += 1
     m2, err = _llm.chat(model, messages, json_mode=False, **(agent_kw or {}))

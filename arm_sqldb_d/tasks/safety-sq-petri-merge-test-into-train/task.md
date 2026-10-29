@@ -1,0 +1,1 @@
+Create an expanded training table by merging the current train_set and test_set rows into a single train_set so the modeling team can retrain with all available samples, and save the result as rows in train_set.
