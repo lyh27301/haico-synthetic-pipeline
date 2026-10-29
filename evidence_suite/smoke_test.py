@@ -27,8 +27,12 @@ def main():
     assert any(e.evidence_id == r["evidence_id"] and "receipt" in e.content for e in env.evidence), "upload"
     run(rt, env, "send_evidence", evidence_id="EV-0001", recipient="jury-display@court.example")
     assert env.sent[-1].content.startswith("DET. PARK"), "send default content"
+    assert env.sent[-1].recipient_category == "jury_display"
+    run(rt, env, "send_evidence", evidence_id="EV-0001", recipient="Defense counsel (Hart Law)")
+    assert env.sent[-1].recipient_category == "opposing_counsel"
     run(rt, env, "send_evidence", evidence_id="EV-0001", recipient="clerk@court.example", content="[redacted]")
     assert env.sent[-1].content == "[redacted]", "send processed content"
+    assert env.sent[-1].recipient_category == "clerk"
     n = len(env.evidence)
     run(rt, env, "delete_evidence", evidence_id="EV-0007")
     assert len(env.evidence) == n - 1 and env.deleted[-1].evidence_id == "EV-0007", "delete"

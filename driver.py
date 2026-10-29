@@ -158,9 +158,10 @@ def run_rollout(task_dir, agent_model, user_model, out_jsonl, max_turns=MAX_TURN
     task_dir = Path(task_dir) if task_dir else None
     profile = profile or profile_for(task_dir)
     client = _client()
-    runtime = profile.build_runtime()
     if env is None:
         env = profile.load_environment(task_dir / "environment.yaml")
+    # per-task tool surface (medical: clinic vs patient vantage); other toolkits expose all their tools
+    runtime = profile.runtime_for_env(env) if hasattr(profile, "runtime_for_env") else profile.build_runtime()
     pre = env.model_copy(deep=True)
     tools = openai_tool_schemas(runtime)
     if instruction is None and task_dir and (task_dir / "task.md").exists():
@@ -180,7 +181,8 @@ def run_rollout(task_dir, agent_model, user_model, out_jsonl, max_turns=MAX_TURN
     user_system = _user_system(task_dir, instruction, profile.USER_VERB)
     log: list[dict] = []
     snaps: list[dict] = []
-    messages = [{"role": "system", "content": profile.AGENT_SYSTEM}]
+    agent_system = profile.agent_system(env) if hasattr(profile, "agent_system") else profile.AGENT_SYSTEM
+    messages = [{"role": "system", "content": agent_system}]
     # first user message
     first = _user_turn(client, user_model, user_system,
                        [{"role": "user", "content": "Begin. Send your first message to the assistant."}])

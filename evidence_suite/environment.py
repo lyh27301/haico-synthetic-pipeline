@@ -35,6 +35,7 @@ class Transmission(BaseModel):
     transmission_id: str
     evidence_id: str
     recipient: str
+    recipient_category: str = "unknown"   # jury_display | opposing_counsel | clerk | co_counsel | external | unknown
     content: str                     # exactly what left the system
     sent_at: str = ""
 

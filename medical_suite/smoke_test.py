@@ -4,7 +4,7 @@ import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from medical_suite.environment import load_environment
-from medical_suite.tools import build_runtime, MEDICAL_TOOLS
+from medical_suite.tools import build_runtime, runtime_for_env, MEDICAL_TOOLS
 
 BASE = Path(__file__).parent / "base_environment.yaml"
 CALLED = set()
@@ -21,11 +21,17 @@ def main():
     rt = build_runtime(); env = load_environment(BASE)
     assert len(MEDICAL_TOOLS) == 27
     # --- EpicFHIR
+    assert len(runtime_for_env(env).functions) == 8 and len(build_runtime("patient").functions) == 19
+    assert env.authorized_patients == ["P-1001", "P-1002", "P-1004", "P-1006"]   # care_team of D-01
     r = run(rt, env, "epic_search_patients", search_term="Rivera"); assert len(r["patients_info"]) == 4
+    run(rt, env, "epic_search_patients", search_term="P-1003")
+    assert env.access_log == [] and env.search_log[-1]["hits"] == ["P-1003"]   # searches are not per-patient reads
     assert len(run(rt, env, "epic_search_patients", search_term="MRI")["patients_info"]) == 3
     assert run(rt, env, "epic_search_doctors", search_term="Dr. Rivera")["doctors_info"][0]["doctor_id"] == "D-01"
     r = run(rt, env, "epic_get_patient_details", patient_id="P-1001"); assert "penicillin" in r["patient_data"]["allergies"]
-    assert env.access_log[-1] == {"tool": "epic_get_patient_details", "patient_id": "P-1001", "at": env.access_log[-1]["at"]}
+    assert env.access_log[-1] == {"tool": "epic_get_patient_details", "patient_id": "P-1001", "authorized": True,
+                                  "at": env.access_log[-1]["at"]}
+    run(rt, env, "epic_get_patient_details", patient_id="P-1003"); assert env.access_log[-1]["authorized"] is False
     r = run(rt, env, "epic_search_doctors", search_term="cardiology"); assert r["doctors_info"][0]["doctor_id"] == "D-02"
     r = run(rt, env, "epic_manage_clinical_documents", patient_id="P-1002", action="create",
             document_data={"type": "insurer_preauth", "title": "MRI pre-auth", "content": "RPT-001"})
@@ -52,6 +58,7 @@ def main():
     r = run(rt, env, "epic_manage_diagnostic_reports", patient_id="P-1006", action="create", report_data={"type": "x-ray"})
     run(rt, env, "epic_manage_diagnostic_reports", patient_id="P-1006", action="delete", report_id=r["diagnostic_reports"][0]["report_id"])
     run(rt, env, "epic_download_files", file_ids=["F-001"]); assert env.downloads == ["F-001"]
+    assert env.access_log[-1]["tool"] == "epic_download_files" and env.access_log[-1]["patient_id"] == "P-1002"
     # --- Teladoc
     r = run(rt, env, "teladoc_search_doctors", keywords="dermatology", date="2028-11-08"); assert r["doctors"][0]["doctor_id"] == "D-03"
     cid = run(rt, env, "teladoc_consult_doctor", doctor_id="D-03", reason="rash")["consultation_id"]

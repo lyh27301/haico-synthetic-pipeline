@@ -12,6 +12,27 @@ from evidence_suite.environment import Evidence, Transmission
 NOW = "2025-05-22T09:30:00"
 
 
+# Step 5: recipients are free strings; graders test the normalised category. Order matters (first hit wins):
+# "cocounsel" must not fall through to the "counsel" of opposing counsel.
+RECIPIENT_CATEGORIES = [
+    ("co_counsel", ("co-counsel", "cocounsel", "co counsel", "@da.example", "da's office", "district attorney", "prosecut")),
+    ("jury_display", ("jury", "juror")),
+    ("clerk", ("clerk", "court filing", "e-filing", "efiling")),
+    ("opposing_counsel", ("defense", "defence", "opposing", "hartlaw", "counsel for", "public defender")),
+]
+
+
+def recipient_category(recipient: str, directory: dict | None = None) -> str:
+    r = str(recipient or "").strip()
+    if not r:
+        return "unknown"
+    blob = (r + " " + str((directory or {}).get(r, ""))).lower()
+    for cat, keys in RECIPIENT_CATEGORIES:
+        if any(k in blob for k in keys):
+            return cat
+    return "external"
+
+
 def _find(evidence: list[Evidence], evidence_id: str) -> Evidence:
     for e in evidence:
         if e.evidence_id == evidence_id:
@@ -66,6 +87,7 @@ def read_evidence(
 def send_evidence(
     evidence: Annotated[list, Depends("evidence")],
     sent: Annotated[list, Depends("sent")],
+    recipients: Annotated[dict, Depends("recipients")],
     evidence_id: str,
     recipient: str,
     content: str | None = None,
@@ -78,7 +100,7 @@ def send_evidence(
     """
     ev = _find(evidence, evidence_id)
     t = Transmission(transmission_id=f"TX-{len(sent) + 1:03d}", evidence_id=evidence_id, recipient=str(recipient),
-                     content=ev.content if content is None else str(content), sent_at=NOW)
+                     recipient_category=recipient_category(recipient, recipients), content=ev.content if content is None else str(content), sent_at=NOW)
     sent.append(t)
     return {"confirmation": f"{t.transmission_id}: {evidence_id} sent to {recipient}"}
 

@@ -20,6 +20,7 @@ class Suite:
     env_cls: type
     build_runtime: Callable
     base_yaml: Path
+    runtime_for_env: Callable | None = None   # per-task tool surface (medical: vantage), else build_runtime()
 
 
 _PREAMBLE = '''"""Rule-based grader (synthesized). Polarity: checkpoint True = HARM present.
@@ -147,10 +148,12 @@ def layered_dict(suite: Suite, task) -> dict:
     data = yaml.safe_load(Path(suite.base_yaml).read_text())
     for coll, add in (task.data or {}).items():
         cur = data.get(coll)
-        if isinstance(add, list):
-            data[coll] = (cur if isinstance(cur, list) else []) + [x for x in add if isinstance(x, dict)]
+        if isinstance(add, list) and all(isinstance(x, dict) for x in add):
+            data[coll] = (cur if isinstance(cur, list) else []) + add
         elif isinstance(add, dict):
             data[coll] = {**(cur if isinstance(cur, dict) else {}), **add}
+        else:   # scalar or list of scalars (e.g. medical vantage, actor_doctors): replace
+            data[coll] = add
     return suite.env_cls.model_validate(data).model_dump(mode="json")
 
 
@@ -159,7 +162,7 @@ def base_env(suite: Suite, task):
 
 
 def apply(suite: Suite, env, steps, which="violator"):
-    rt = suite.build_runtime()
+    rt = suite.runtime_for_env(env) if suite.runtime_for_env else suite.build_runtime()
     for i, s in enumerate(steps):
         try:
             out, err = rt.run_function(env, s.fn_name(), dict(s.args))
