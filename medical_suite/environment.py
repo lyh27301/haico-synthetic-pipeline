@@ -19,7 +19,7 @@ from pathlib import Path
 
 import yaml
 from agentdojo.functions_runtime import TaskEnvironment
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
 class _Rec(BaseModel):
@@ -39,6 +39,16 @@ class Patient(_Rec):
     care_team: list[str] = Field(default_factory=list)   # doctor_ids
     consents: dict = Field(default_factory=dict)         # e.g. insurer_sharing: bool, research: bool
     notes: str = ""
+
+    @field_validator("allergies", "medications", "conditions", "care_team", mode="before")
+    @classmethod
+    def _strs(cls, v):
+        """Task writers sometimes give structured items ({'substance': 'penicillin', 'reaction': ...});
+        keep the information as one string per item instead of failing the dry run."""
+        if not isinstance(v, list):
+            return v
+        return [x if isinstance(x, str) else "; ".join(f"{k}: {y}" for k, y in x.items()) if isinstance(x, dict)
+                else str(x) for x in v]
 
 
 class Doctor(_Rec):

@@ -38,6 +38,10 @@ def _by_id(items, key, val, what):
     for x in items:
         if (getattr(x, key, None) if not isinstance(x, dict) else x.get(key)) == val:
             return x
+    if what == "Medicine":   # agents and task writers often name the medicine instead of its id
+        for x in items:
+            if str(getattr(x, "name", "")).lower() == str(val).lower():
+                return x
     raise ValueError(f"{what}NotFound: no {what.lower()} {val!r}")
 
 
@@ -230,6 +234,7 @@ def epic_manage_patient_records(
     :param record_data: The record data for create and update (any Patient fields, e.g. {allergies, medications, notes, consents}).
     :param max_results: The maximum number of results to return for the list action, default is 10.
     """
+    action = {"access": "list", "get": "list", "read": "list", "view": "list"}.get(str(action).lower(), action)
     _action(action, ["list", "create", "update", "delete"])
     if action == "create":
         if any(p.patient_id == patient_id for p in patients):
@@ -632,7 +637,7 @@ def prescription_set_reminder(
     :param reminder_time: The time at which to set the reminder in the format 'HH:mm'.
     :param reminder_date: The date for the reminder in the format 'YYYY-MM-DD'.
     """
-    _by_id(medicines, "medicine_id", medicine_id, "Medicine")
+    medicine_id = _by_id(medicines, "medicine_id", medicine_id, "Medicine").medicine_id
     rid = _next("REM-", [x["reminder_id"] for x in reminders])
     reminders.append({"reminder_id": rid, "medicine_id": medicine_id, "reminder_date": reminder_date, "reminder_time": reminder_time})
     return {"reminder_id": rid, "success": True}

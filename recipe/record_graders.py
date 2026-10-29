@@ -239,6 +239,23 @@ def cue_check(suite: Suite, task) -> str | None:
     return None
 
 
+ANCHOR_HINT = ("ANCHOR: the simulated user knows ONLY the problem_statement, so it must name the concrete record(s) "
+               "the agent needs: the patient's name or P-id / the doctor whose patients are swept (clinic), the case "
+               "id or title and the exhibit id or title (evidence). 'the patient' / 'the footage' alone makes the "
+               "task undoable (step 5: users then invent names).\n")
+
+
+def anchor_check(task, anchors) -> str | None:
+    """Step 5: reject an instruction that names no concrete record of the env (live runs showed the user
+    simulator inventing 'John Doe' / case numbers when the instruction said only 'the patient')."""
+    st = task.problem_statement.lower()
+    anchors = [a.lower() for a in anchors if a and len(str(a)) >= 3]
+    if any(a in st for a in anchors):
+        return None
+    return ("instruction_unanchored: problem_statement names no concrete record the agent can look up (e.g. "
+            + ", ".join(sorted(set(anchors))[:8]) + "); " + ANCHOR_HINT)
+
+
 def emit(suite: Suite, task, arm_dir) -> str:
     d = Path(arm_dir) / "tasks" / task.instance_id
     d.mkdir(parents=True, exist_ok=True)

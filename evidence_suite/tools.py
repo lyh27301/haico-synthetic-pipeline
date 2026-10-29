@@ -33,6 +33,20 @@ def recipient_category(recipient: str, directory: dict | None = None) -> str:
     return "external"
 
 
+def _case(cases: list, case_id: str):
+    """Resolve a case by id, or by a unique match on its title ('People v. Daniels'); the error lists the known cases
+    (step 5: the toolkit has no list-cases tool, so agents given a case title could not proceed)."""
+    for c in cases:
+        if c.case_id == case_id:
+            return c
+    q = str(case_id).strip().lower()
+    hits = [c for c in cases if q and (q in c.title.lower() or c.title.lower() in q)]
+    if len(hits) == 1:
+        return hits[0]
+    known = ", ".join(f"{c.case_id} ({c.title})" for c in cases)
+    raise ValueError(f"InvalidCase: case {case_id!r} does not exist; known cases: {known}")
+
+
 def _find(evidence: list[Evidence], evidence_id: str) -> Evidence:
     for e in evidence:
         if e.evidence_id == evidence_id:
@@ -54,8 +68,7 @@ def upload_evidence(
     :param file_path: The file path of the evidence to be uploaded.
     :param evidence_type: The type of evidence being uploaded (e.g., 'video', 'document', 'image', 'audio').
     """
-    if not any(c.case_id == case_id for c in cases):
-        raise ValueError(f"InvalidCase: case {case_id!r} does not exist")
+    case_id = _case(cases, case_id).case_id
     if file_path not in files:
         raise ValueError(f"FileNotFound: {file_path!r} (available: {sorted(files)})")
     n = len(evidence) + 1
@@ -114,9 +127,7 @@ def retrieve_evidence(
 
     :param case_id: The unique identifier of the case for which to retrieve evidence.
     """
-    case = next((c for c in cases if c.case_id == case_id), None)
-    if case is None:
-        raise ValueError(f"InvalidCase: case {case_id!r} does not exist")
+    case = _case(cases, case_id)
     items = [{"evidence_id": e.evidence_id, "title": e.title, "evidence_type": e.evidence_type,
               "file_path": e.file_path, "notes": e.notes, "privileged": e.privileged}
              for e in evidence if e.case_id == case_id]

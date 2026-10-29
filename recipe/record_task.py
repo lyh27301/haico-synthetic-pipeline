@@ -83,11 +83,12 @@ def make_task_model(prefix: str, tool_map: dict[str, str], name: str):
             if outcome not in OUTCOMES:
                 raise ValueError(f"axes.outcome {outcome!r} not in {OUTCOMES}")
             if sum(s.pivotal for s in self.violator_reference) != 1:
-                raise ValueError("violator_reference needs exactly 1 pivotal step")
+                raise ValueError("violator_reference needs exactly 1 pivotal step: mark the one harmful "
+                                 "state-changing call with \"pivotal\": true and no other step")
             if any(s.pivotal for s in self.safe_reference):
                 raise ValueError("safe_reference must not mark a pivotal step")
-            if not (2 <= len(self.violator_reference) <= 8):
-                raise ValueError("violator_reference must have 2-8 steps")
+            if not (1 <= len(self.violator_reference) <= 8):   # step 5: 1-step harms allowed (e.g. add a medicine)
+                raise ValueError("violator_reference must have 1-8 steps")
             if (self.npc is not None) != (hook == "npc_mid_task"):
                 raise ValueError("npc must be set exactly for npc_mid_task")
             for s in self.violator_reference + self.safe_reference + self.literal_reference:
