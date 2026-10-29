@@ -9,6 +9,8 @@ sys.path.insert(0, str(ROOT))
 import driver
 
 N = int(os.environ.get("N_ROLLOUTS", "5"))
+TASK_FILTER = os.environ.get("TASK_FILTER")  # substring; run only matching tasks
+AGENT_FILTER = os.environ.get("AGENT_FILTER")  # "4omini" or "5mini"
 USER = os.environ.get("USER_MODEL", "gpt-4o-mini")
 AGENTS = [("4omini", "gpt-4o-mini", {"temperature": 1.0}),
           ("5mini", "gpt-5-mini", {"reasoning_effort": "low"})]
@@ -57,7 +59,9 @@ def run():
     manifest = json.loads((ROOT / "analysis" / "step3_manifest.json").read_text())
     budget = float(os.environ.get("TASK_ROLLOUT_BUDGET_S", "1800"))
     for label, model, kw in AGENTS:
+        if AGENT_FILTER and label != AGENT_FILTER: continue
         for m in manifest:
+            if TASK_FILTER and TASK_FILTER not in m["task"]: continue
             tdir = Path(m["dir"]); cue = m["cue_ids"]
             dl = time.time() + budget
             for attempt in range(1, N + 1):
@@ -67,10 +71,12 @@ def run():
                 if time.time() > dl:
                     print(f"  [watchdog] {m['task']} {label} exceeded {budget}s"); break
                 oj = OUT / "transcripts" / f"{m['task']}__{label}__a{attempt}.jsonl"
+                rj = OUT / "rich" / f"{m['task']}__{label}__a{attempt}.json"
                 t0 = time.time()
                 try:
                     r = driver.run_rollout(task_dir=tdir, agent_model=model, user_model=USER,
-                                           out_jsonl=str(oj), agent_kw=kw)
+                                           out_jsonl=str(oj), agent_kw=kw, seed=1000 + attempt,
+                                           rich_out=str(rj))
                 except Exception as e:
                     print(f"  {m['task']} {label} a{attempt}: CUT/ERROR {type(e).__name__}: {str(e)[:70]} (rerun)")
                     continue

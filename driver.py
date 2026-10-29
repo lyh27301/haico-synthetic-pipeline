@@ -19,6 +19,22 @@ from gmail_suite.environment import GmailEnvironment, env_to_dict, load_environm
 from gmail_suite.tools import build_runtime
 from recipe import llm as _llm
 
+import subprocess as _sp
+
+_STATE_CHANGING = {"send_email", "delete_emails", "organize_email",
+                   "add_or_update_contact", "delete_contact"}
+_GIT_HASH = None
+
+def _git_hash():
+    global _GIT_HASH
+    if _GIT_HASH is None:
+        try:
+            _GIT_HASH = _sp.check_output(["git", "rev-parse", "HEAD"],
+                                         cwd=str(Path(__file__).resolve().parent)).decode().strip()
+        except Exception:
+            _GIT_HASH = "unknown"
+    return _GIT_HASH
+
 STOP_TOKEN = "[END]"
 MAX_TURNS = 8
 MAX_TOOL_CALLS_PER_TURN = 15
@@ -51,7 +67,7 @@ AGENT_SYSTEM = (
 )
 
 
-def _agent_turn(client, model, messages, tools, runtime, env, log, agent_kw=None):
+def _agent_turn(client, model, messages, tools, runtime, env, log, agent_kw=None, snaps=None):
     """Run the agent until it returns a text reply (no tool call) or hits the cap."""
     n_calls = 0
     while n_calls < MAX_TOOL_CALLS_PER_TURN:
@@ -72,7 +88,12 @@ def _agent_turn(client, model, messages, tools, runtime, env, log, agent_kw=None
                 args = {}
             out, err = runtime.run_function(env, name, args)
             result = {"error": err} if err else out
+            # rich log: full args + full (untruncated) result + deep env snapshot after the call
             log.append({"role": "tool", "name": name, "args": args, "result": result})
+            if snaps is not None:
+                snaps.append({"name": name, "args": args, "result": result,
+                              "state_changing": name in _STATE_CHANGING,
+                              "env_after": env_to_dict(env)})
             messages.append({"role": "tool", "tool_call_id": tc.id,
                              "content": json.dumps(result, default=str)[:4000]})
             if n_calls >= MAX_TOOL_CALLS_PER_TURN:
@@ -117,7 +138,8 @@ def _user_turn(client, model, user_system, history_for_user) -> str:
 
 def run_rollout(task_dir, agent_model, user_model, out_jsonl, max_turns=MAX_TURNS,
                 instruction: str | None = None, env: GmailEnvironment | None = None,
-                agent_kw: dict | None = None):
+                agent_kw: dict | None = None, seed: int | None = None,
+                rich_out: str | None = None, is_npc: bool | None = None):
     task_dir = Path(task_dir) if task_dir else None
     client = _client()
     runtime = build_runtime()
@@ -128,36 +150,67 @@ def run_rollout(task_dir, agent_model, user_model, out_jsonl, max_turns=MAX_TURN
     if instruction is None and task_dir and (task_dir / "task.md").exists():
         instruction = (task_dir / "task.md").read_text()
 
+    agent_kw = dict(agent_kw or {})
+    if seed is not None:
+        agent_kw.setdefault("seed", seed)
+
+    # detect npc task from the scenario if not told
+    if is_npc is None and task_dir and (task_dir / "scenarios.json").exists():
+        try:
+            is_npc = bool(json.loads((task_dir / "scenarios.json").read_text()).get("goal"))
+        except Exception:
+            is_npc = False
+
     user_system = _user_system(task_dir, instruction)
     log: list[dict] = []
+    snaps: list[dict] = []
     messages = [{"role": "system", "content": AGENT_SYSTEM}]
     # first user message
     first = _user_turn(client, user_model, user_system,
                        [{"role": "user", "content": "Begin. Send your first message to the assistant."}])
+    # NPC guarantee: the bend request must land before the agent can finish; never accept a
+    # stop token on the opening NPC turn (a stateless NPC states its full ask up front).
+    if is_npc:
+        first = first.replace(STOP_TOKEN, "").strip()
     log.append({"role": "user", "content": first})
-    n_tool_before = 0
+    npc_request_delivered = bool(is_npc)  # the opening NPC message carries the ask
+    first_state_change_turn = None
     for _turn in range(max_turns):
         messages.append({"role": "user", "content": first.replace(STOP_TOKEN, "").strip()})
-        reply = _agent_turn(client, agent_model, messages, tools, runtime, env, log, agent_kw)
+        n_before = len(snaps)
+        reply = _agent_turn(client, agent_model, messages, tools, runtime, env, log, agent_kw, snaps)
+        if first_state_change_turn is None and any(sn["state_changing"] for sn in snaps[n_before:]):
+            first_state_change_turn = _turn
         if STOP_TOKEN in first:
             break
-        # user responds to the agent's reply
         convo_for_user = [{"role": "user", "content":
                            "The assistant replied:\n" + reply + "\n\nRespond as the user (one short message)."}]
         first = _user_turn(client, user_model, user_system, convo_for_user)
         log.append({"role": "user", "content": first})
         if STOP_TOKEN in first:
-            # let the agent see the final user message once more? no; stop.
             break
     n_tool_calls = sum(1 for e in log if e.get("role") == "tool")
-    # write transcript
     if out_jsonl:
         Path(out_jsonl).parent.mkdir(parents=True, exist_ok=True)
         with open(out_jsonl, "w") as fh:
             for e in log:
                 fh.write(json.dumps(e, default=str) + "\n")
-    return {"pre": env_to_dict(pre), "post": env_to_dict(env),
-            "n_tool_calls": n_tool_calls, "transcript": log}
+    rich = {"task_dir": str(task_dir) if task_dir else None, "model": agent_model, "user_model": user_model,
+            "temperature": agent_kw.get("temperature"), "seed": agent_kw.get("seed"),
+            "reasoning_effort": agent_kw.get("reasoning_effort"), "driver_git_hash": _git_hash(),
+            "max_turns": max_turns, "is_npc": bool(is_npc),
+            "npc_request_delivered_before_pivotal": (npc_request_delivered if is_npc else None),
+            "pre": env_to_dict(pre), "post": env_to_dict(env), "transcript": log,
+            "tool_steps": snaps, "n_tool_calls": n_tool_calls,
+            "n_user_turns": sum(1 for e in log if e.get("role") == "user"),
+            "n_agent_replies": sum(1 for e in log if e.get("role") == "agent"),
+            "first_state_change_turn": first_state_change_turn}
+    if rich_out:
+        Path(rich_out).parent.mkdir(parents=True, exist_ok=True)
+        tmp = Path(rich_out).with_suffix(".tmp")
+        tmp.write_text(json.dumps(rich, default=str)); tmp.replace(Path(rich_out))
+    return {"pre": rich["pre"], "post": rich["post"], "n_tool_calls": n_tool_calls,
+            "transcript": log, "tool_steps": snaps, "rich": rich}
 
 
 def calls_snapshot() -> dict:
