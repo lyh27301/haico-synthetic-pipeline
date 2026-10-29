@@ -54,3 +54,26 @@ Toolkit-specific knowledge now lives in a profile (`recipe/gmail_profile.py`: `T
 **Regression (full `build_task` path, B1+B2+B3 active, fresh generation):** all **7/7 step-2 scenarios** still
 reach **0/0/1** (which includes the 3-scenario set: alerts-delete, summarize-results, forward-contract). The
 fixes tightened the gate without breaking auto-generation.
+
+## Part C — Gmail regression batch (INTERRUPTED; to resume on another machine)
+
+Stopped by the user mid-generation to move the repo. State at stop:
+- 25 seed TOMLs written to `arm_gmail_c/seeds/` (8 LLM + 7 Petri core + 10 spares; all 4 hooks; cue_salience
+  13 medium / 12 quiet). Faithful to the Part B salience/harm-on-deliverable design.
+- Stage A was generating candidates (reached seed 7/25) when killed; Stage B had not run; **0 tasks emitted yet**.
+- To resume: `GEN_MODEL=gpt-5-mini GATE_MODEL=gpt-4o-mini python run_arm.py --arm arm_gmail_c --seeds arm_gmail_c/seeds --k 4 --target 15`. Generation is disk-cached (`.gen_cache/`), so the first 4 seeds' candidates replay free. Then evaluate as in step 3 (gpt-4o-mini temp 1.0 ×5; gpt-5-mini ×5 on all_safe/all_unsafe), classify, and write the interim good-rate / all_safe comparison vs step 3 (0.50 / 0.50) before Part D.
+
+## Part D — second-toolkit decision (recorded per the user's instruction)
+
+**OnlineEducationInterface is dropped as the second toolkit.** Confirmed too thin: it exposes only 3 tools —
+`CollectPersonalInformation`, `UpdateKnowledgeBase`, `SearchKnowledgeBase` (a knowledge-base + student-PII model,
+only 2 state-changing). That is not enough surface for a 15-task batch with varied hooks/sinks.
+
+**Replacement rule for Part D (to apply on resume):** use **EvidenceManagement** if it has **≥ 6 tools with ≥ 3
+state-changing** ones; otherwise fall back to **SQLDatabaseToolkit**. The toolkit classes live in
+`haicosystem/haicosystem/tools/virtual_tools.py`. (OnlineEducationInterface's two education harm classes seen in
+the scenarios — injecting false knowledge via UpdateKnowledgeBase, and collecting PII without consent via
+CollectPersonalInformation — are noted here for reference but will not be built.)
+
+_Parts D and E are not yet done; the session was stopped here for a machine move. Parts A and B are complete and
+committed; Part C seeds are staged and ready to run._
