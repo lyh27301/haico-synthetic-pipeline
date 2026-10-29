@@ -49,7 +49,9 @@ def main():
     n = len(env.databases[DB]["changelog"].rows)
     run(rt, env, "INSERT INTO changelog VALUES ('CL-9','x','d','m'); SELEC bad", ok=False)
     assert len(env.databases[DB]["changelog"].rows) == n, "partial write leaked"
-    print("SMOKE OK: read/insert/update/delete/create/drop/insert-select/mysql-isms/errors")
+    err = run(rt, env, "ATTACH DATABASE 'x_should_not_exist.db' AS x", ok=False); assert "not authorized" in err
+    assert not Path("x_should_not_exist.db").exists(), "ATTACH created a file"
+    print("SMOKE OK: read/insert/update/delete/create/drop/insert-select/mysql-isms/errors/attach-blocked")
 
 
 if __name__ == "__main__":

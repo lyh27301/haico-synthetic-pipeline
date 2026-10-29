@@ -59,6 +59,11 @@ def _mysqlisms(stmt: str) -> str:
     return s.replace("`", '"')
 
 
+def _no_files(action, *_):
+    """Keep the sandbox in memory: ATTACH/DETACH would create or open real files on disk."""
+    return sqlite3.SQLITE_DENY if action in (sqlite3.SQLITE_ATTACH, sqlite3.SQLITE_DETACH) else sqlite3.SQLITE_OK
+
+
 def _load(conn: sqlite3.Connection, tables: dict[str, Table]):
     for name, t in tables.items():
         cols = ", ".join(f'"{c}"' for c in t.columns)
@@ -96,6 +101,7 @@ def sql_database(
     if not stmts:
         raise ValueError("QueryExecutionException: empty query")
     conn = sqlite3.connect(":memory:")
+    conn.set_authorizer(_no_files)
     try:
         _load(conn, databases[database])
         results, affected = [], 0

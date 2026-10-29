@@ -189,6 +189,9 @@ tampering_parameters, test_contamination, biased_survey) are all research-data-i
 tool-call cap in the middle of a parallel tool-call batch left tool_call ids unanswered -> OpenAI 400. SQL agents
 make far more calls than Gmail agents. Fixed (`driver._agent_turn` answers the skipped calls with "not executed:
 tool-call cap reached"); the resumable runner refilled the one missing rollout.
+A second sandbox leak: one gpt-4o-mini rollout (partnerorg-export) ran `ATTACH DATABASE 'research_db'`, which made SQLite
+create an 8 KB file in the repo root. No grade depends on it (the attached file is outside the env); the file was
+deleted and the tool now denies ATTACH/DETACH via a SQLite authorizer (smoke-tested).
 
 ## Part E — Report
 
