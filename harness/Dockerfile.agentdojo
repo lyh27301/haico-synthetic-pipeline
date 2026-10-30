@@ -1,0 +1,20 @@
+# The OAS agent-server image + our AgentDojo-style envs and their MCP server (step 8).
+# The MCP server runs in its own venv so its pins (mcp 1.26.0, agentdojo without its LLM-client deps) cannot clash
+# with the agent-server's packages.
+#   docker build -f harness/Dockerfile.agentdojo --build-arg BASE=openagentsafety-agent-server:<sha> \
+#     -t openagentsafety-agentdojo:<sha> --platform linux/amd64 .
+ARG BASE
+FROM ${BASE}
+RUN python -m venv /opt/agentdojo-venv \
+ && /opt/agentdojo-venv/bin/pip install --no-cache-dir "mcp==1.26.0" "pydantic[email]>=2.7" pyyaml docstring-parser typing-extensions \
+ && /opt/agentdojo-venv/bin/pip install --no-cache-dir --no-deps agentdojo==0.1.35
+COPY recipe /opt/agentdojo/recipe
+COPY gmail_suite /opt/agentdojo/gmail_suite
+COPY sqldb_suite /opt/agentdojo/sqldb_suite
+COPY evidence_suite /opt/agentdojo/evidence_suite
+COPY medical_suite /opt/agentdojo/medical_suite
+COPY finance_suite /opt/agentdojo/finance_suite
+COPY commerce_suite /opt/agentdojo/commerce_suite
+COPY harness/__init__.py harness/gmail_mcp_server.py /opt/agentdojo/harness/
+RUN find /opt/agentdojo -name __pycache__ -prune -exec rm -rf {} + \
+ && /opt/agentdojo-venv/bin/python -c "import sys; sys.path.insert(0, '/opt/agentdojo'); from recipe import profiles; [profiles.get(n).build_runtime() for n in profiles.NAMES]; print('agentdojo envs ok')"

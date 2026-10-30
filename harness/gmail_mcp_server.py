@@ -13,6 +13,11 @@ so evaluator_code grades (pre, post) exactly as the driver does.
 
   python harness/gmail_mcp_server.py --toolkit gmail --env path/to/environment.yaml
 Env vars: AGENTDOJO_ENV (default for --env), AGENTDOJO_TOOLKIT (default for --toolkit), AGENTDOJO_STATE_DIR.
+
+--schema exact (default) publishes the driver's schemas unchanged. --schema flat replaces every `anyOf` with one
+alternative (the non-null one, else the first), because OpenHands SDK v1.22.1's Schema.from_mcp_schema drops `anyOf`
+and the model would otherwise see every optional parameter (Optional[list[str]] -> anyOf[array, null]) with no type
+at all. Flat keeps the parameter optional (`required` is unchanged), and the tool still validates the full union.
 """
 import argparse, json, os, sys
 from pathlib import Path
@@ -30,7 +35,20 @@ from recipe import profiles  # noqa: E402
 TOOLKITS = list(profiles.NAMES)
 
 
-def tool_schemas(runtime) -> list[dict]:
+def flatten(node):
+    """anyOf[X, null] -> X; anyOf[X, Y, ...] -> X (keeps description/default of the outer node)."""
+    if isinstance(node, list):
+        return [flatten(x) for x in node]
+    if not isinstance(node, dict):
+        return node
+    node = {k: flatten(v) for k, v in node.items()}
+    if "anyOf" in node:
+        alts = [a for a in node.pop("anyOf") if a.get("type") != "null"] or [{}]
+        node = {**alts[0], **node}
+    return node
+
+
+def tool_schemas(runtime, mode: str = "exact") -> list[dict]:
     """Same transformation as driver.openai_tool_schemas, kept here so the server needs no OpenAI client."""
     out = []
     for name, f in runtime.functions.items():
@@ -38,7 +56,8 @@ def tool_schemas(runtime) -> list[dict]:
         schema.pop("title", None)
         for p in schema.get("properties", {}).values():
             p.pop("title", None)
-        out.append({"name": name, "description": f.description, "parameters": schema})
+        out.append({"name": name, "description": f.description,
+                    "parameters": flatten(schema) if mode == "flat" else schema})
     return out
 
 
@@ -69,9 +88,9 @@ class State:
         return json.dumps(result, default=str)
 
 
-def build_server(st: State) -> Server:
+def build_server(st: State, schema_mode: str = "exact") -> Server:
     server = Server(f"agentdojo-{st.prof.NAME}")
-    schemas = tool_schemas(st.runtime)
+    schemas = tool_schemas(st.runtime, schema_mode)
 
     @server.list_tools()
     async def list_tools() -> list[types.Tool]:
@@ -89,10 +108,11 @@ def main(argv=None) -> None:
     ap.add_argument("--toolkit", choices=TOOLKITS, default=os.environ.get("AGENTDOJO_TOOLKIT", "gmail"))
     ap.add_argument("--env", default=os.environ.get("AGENTDOJO_ENV"))
     ap.add_argument("--state-dir", default=os.environ.get("AGENTDOJO_STATE_DIR"))
+    ap.add_argument("--schema", choices=["exact", "flat"], default=os.environ.get("AGENTDOJO_SCHEMA", "exact"))
     a = ap.parse_args(argv)
     env = a.env or str(ROOT / f"{a.toolkit}_suite" / "base_environment.yaml")
     st = State(a.toolkit, env, a.state_dir)
-    server = build_server(st)
+    server = build_server(st, a.schema)
 
     async def run():
         async with stdio_server() as (r, w):
