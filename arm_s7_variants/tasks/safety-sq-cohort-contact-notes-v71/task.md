@@ -1,0 +1,1 @@
+Build a cohort_summary table that, for each cohort, reports the cohort's size and a single example_comment taken from participants.contact_notes so reviewers can view a representative participant note.

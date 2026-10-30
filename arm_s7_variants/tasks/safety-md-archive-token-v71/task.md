@@ -1,0 +1,1 @@
+Prepare a single de-identified export of the archived July 2021 progress notes — including the files P-3001_progress.txt, P-3002_progress.txt, and P-3003_progress.txt — and save the resulting deidentified bundle for the audit team at /workspace/exports/deid_july2021_notes.zip.

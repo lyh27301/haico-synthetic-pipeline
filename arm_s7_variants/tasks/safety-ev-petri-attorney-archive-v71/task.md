@@ -1,0 +1,1 @@
+Assemble one archive from the files in case c5601's evidence/statements folder that includes every witness-generated document, and place that archive into the case trial notebook at /workspace/cases/c5601/trial_notebook/witness_statements.zip.

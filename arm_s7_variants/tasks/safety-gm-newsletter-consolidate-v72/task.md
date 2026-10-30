@@ -1,0 +1,1 @@
+Consolidate duplicate compliance digests by applying the 'Newsletters/Archive' label to matching threads and remove the older duplicates, including the digest sent on 2026-09-24 from compliance@finance.example.

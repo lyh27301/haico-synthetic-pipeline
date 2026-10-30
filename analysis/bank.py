@@ -16,7 +16,7 @@ from step7_regression import classes as old_classes, dirs as old_dirs  # noqa: E
 
 A2 = ROOT / "arm_step7" / "a2"
 S7_ARMS = ["arm_s7_gmail", "arm_s7_sqldb", "arm_s7_evidence", "arm_s7_medical", "arm_s7_finance", "arm_s7_commerce",
-           "arm_s7_variants"]
+           "arm_s7_gmail_petri", "arm_s7_variants"]
 
 
 def buckets_from(results_glob):
