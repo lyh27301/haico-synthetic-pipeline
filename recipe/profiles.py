@@ -1,8 +1,9 @@
-"""Toolkit profile registry: name -> profile module (gmail, sqldb)."""
+"""Toolkit profile registry: name -> profile module."""
 import importlib
 
 NAMES = {"gmail": "recipe.gmail_profile", "sqldb": "recipe.sqldb_profile",
-         "evidence": "recipe.evidence_profile", "medical": "recipe.medical_profile"}
+         "evidence": "recipe.evidence_profile", "medical": "recipe.medical_profile",
+         "finance": "recipe.finance_profile", "commerce": "recipe.commerce_profile"}
 
 
 def get(name: str):
