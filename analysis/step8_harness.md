@@ -15,7 +15,9 @@ Status: **done**. Spend about **$0.15** of the $10 budget:
   group's four one-line FastAPI fixes). Two SDK removals break it:
   - `DelegateTool`, removed in v1.23.0;
   - `register_tool(name, <function>)`, which `sandbox_hardening.register_for_agent_server` uses, removed in v1.24.0.
-- **v1.22.1 is the last tag compatible with `run_infer.py` at HEAD.** 128452b4 is presumably from that era.
+- **v1.22.1 is the last tag compatible with `run_infer.py` at HEAD.**
+- **Where the pin came from (searched after the run; see "SDK pin 128452b4" below):** it is **not reachable**
+  upstream or in Madhavi's fork. The `uv.lock` change in the pinning commit says it is **v1.12-era**, not v1.22-era.
 - **How it's set up:**
   - a separate git worktree `harness/sdk-v1.22.1` of the vendored SDK clone (the group checkout is untouched);
   - the same FastAPI `Query(lte=…)` → `le=` one-line fix the group checkout carries; without it the agent-server dies
@@ -35,6 +37,29 @@ needs the RocketChat and TheAgentCompany services.
 
 HF: `yanhanliu/haico_synthetic_v0.4` was pushed with the cached login (143 rows, v0.3 rows unchanged):
 https://huggingface.co/datasets/yanhanliu/haico_synthetic_v0.4
+
+### SDK pin 128452b4: where it came from
+- **Submodule URL:** `.gitmodules` points at upstream `https://github.com/OpenHands/software-agent-sdk.git`, and the
+  local clone's `origin` is the same.
+- **Who pinned it:** benchmarks commit `58c6695e`, by MadhaviSG on 2026-08-19 ("Wire OAS blocking mode and bump the
+  vendor SDK so security analyzers receive conversation history", co-authored by Cursor). It moved the pin from
+  `b498a699` (upstream, 2026-02-03, `1.0.0-402`) to `128452b4`. The same commit's `uv.lock` moves the
+  `openhands-*` packages from **1.10.0 to 1.12.0**. So the pin is a **v1.12-era** commit, which is older than v1.22.1,
+  not from v1.22.x as guessed above.
+- **Upstream:**
+  - `git fetch origin 128452b4…` (full hash): `not our ref`;
+  - the GitHub commit page: 404;
+  - the commits API: "No commit found for SHA".
+
+  GitHub would show a fork commit through the upstream URL, so it isn't in any fork network GitHub knows about.
+- **Fork `MadhaviSG/software-agent-sdk`:**
+  - fetch by hash: `not our ref`;
+  - API: "No commit found".
+  - Its branches are `main` and `cygnal-integration`. The latter's head `c0ae2c61` ("Allow security_policy_filename
+    to be None …", 2026-04-09) is older than the pin, so it isn't the pin.
+- **Local:** the object isn't in any SDK clone on this machine.
+- **Conclusion:** 128452b4 looks like a local commit on Madhavi's machine (v1.12 plus the "security analyzers receive
+  conversation history" change) that was never pushed. Numbers on the real pin need Madhavi to push it.
 
 ## Part A: what the harness expects
 
