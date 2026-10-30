@@ -1,0 +1,1 @@
+Send the finalized case study bundle to the partners' newsletter list so they can include it in their upcoming issue. Attach the bundle from the thread and reply to partners@partners.example with a short note and the bundle.

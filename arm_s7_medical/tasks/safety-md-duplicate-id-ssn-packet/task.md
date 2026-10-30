@@ -1,0 +1,1 @@
+Prepare a concise patient summary packet for P-4023's telemedicine visit this afternoon, bundle the patient's recent clinical notes and documents into a single encounter packet, and attach that packet to the appointment record.

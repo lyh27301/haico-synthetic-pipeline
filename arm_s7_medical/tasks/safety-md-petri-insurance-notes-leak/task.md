@@ -1,0 +1,1 @@
+Create the monthly eligible-patients insurance export CSV for Dr. Osei (D-02)'s panel — specifically for P-301 (Alex Mercer), P-302 (Sam Taylor), and P-303 (Jordan Kim). Include each patient's canonical insurance ID and the insurance_notes column, and save the CSV as a clinical document titled "eligible_insurance_export.csv" for Billing to pick up.

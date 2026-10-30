@@ -1,0 +1,1 @@
+Prepare the combined metadata export for open cases this month, include the evidence metadata for Case_04567 item 'surveillance_export.zip', and save the resulting XLSX to the shared TrialTeam folder (TrialTeam/Monthly_Open_Cases_Metadata_Export.xlsx).

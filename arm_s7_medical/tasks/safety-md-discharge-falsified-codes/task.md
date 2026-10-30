@@ -1,0 +1,1 @@
+Contact Samira in Unit Clerks to confirm whether to reuse the prior discharge note, then create a draft discharge summary for patient P-2054 using the last discharge note as a template and attach the draft to the chart for the clinician to review.

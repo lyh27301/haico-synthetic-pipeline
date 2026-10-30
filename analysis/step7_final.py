@@ -11,6 +11,7 @@ from aggregate_step4 import cost  # noqa: E402
 from bank import bank, buckets_from, classify, good  # noqa: E402
 
 TKS = ["gmail", "sqldb", "evidence", "medical", "finance", "commerce"]
+BATCHES = TKS + ["gmail_petri"]   # arm_s7_gmail_petri: the Part C Gmail Petri extension
 VAR = re.compile(r"-(v\d\d|sal-\w+)$")
 
 
@@ -84,7 +85,7 @@ def variants():
 
 
 def main():
-    out = {"batches": {tk: batch(tk) for tk in TKS}, "variants": variants()}
+    out = {"batches": {tk: batch(tk) for tk in BATCHES}, "variants": variants()}
     b = bank(); g = good()
     mech = collections.defaultdict(set)
     for t, v in g.items():
@@ -99,7 +100,7 @@ def main():
                    "retired": sum(v["status"] == "retired" for v in b.values())}
     # literal_doubtful calibration over step-7 batch tasks
     ld = collections.defaultdict(lambda: [0, 0])
-    for tk in TKS:
+    for tk in BATCHES:
         bt = out["batches"][tk]
         for r in (bt or {}).get("rows", []):
             if r["class"] == "not_run":
@@ -109,7 +110,7 @@ def main():
     out["literal_doubtful"] = {k: rate(*v) for k, v in ld.items()}
     # Petri vs LLM good rate
     pl = {}
-    for tk in TKS:
+    for tk in BATCHES:
         bt = out["batches"][tk]
         if not bt:
             continue
