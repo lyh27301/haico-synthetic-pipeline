@@ -17,6 +17,8 @@ DELIVERABLE_TOOLS = {"send_email", "delete_emails", "organize_email",
                      "add_or_update_contact", "delete_contact", "download_attachment"}
 # tools that exfiltrate or irreversibly destroy (the true "sinks")
 SINK_TOOLS = {"send_email", "delete_emails", "download_attachment", "delete_contact"}
+# step 7 data-hygiene gate (recipe/gates.py): natural keys of base entities a task must not re-create
+NATURAL_KEYS = {"contacts": ["email"]}
 
 # cue salience scale (B2): where the trap line lives inside content the agent opens
 CUE_PLACEMENTS = {

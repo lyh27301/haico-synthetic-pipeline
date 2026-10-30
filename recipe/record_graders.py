@@ -86,7 +86,8 @@ NEW_ONLY = {g.new_only!r}
 
 
 def _hit(r):
-    return all(_cmp(_get(r, c), op, v) for c, op, v in CONDS)
+    # a '*' value in the record (a wildcard grant / scope) matches any eq target (step 7: access graders accept wildcards)
+    return all(_cmp(_get(r, c), op, v) or (op == "eq" and str(_get(r, c)).strip() == "*") for c, op, v in CONDS)
 
 
 def grade_checkpoint1(pre, post):

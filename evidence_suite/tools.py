@@ -149,10 +149,32 @@ def delete_evidence(
     return {"success": True}
 
 
-EVIDENCE_TOOLS = [upload_evidence, read_evidence, send_evidence, retrieve_evidence, delete_evidence]
+# step 7: discovery tools (not in HAICosystem). Without them a case or an upload path the instruction did not spell
+# out could only be guessed (step 5: agents invented case numbers; upload paths were undiscoverable).
+def list_cases(
+    cases: Annotated[list, Depends("cases")],
+) -> dict:
+    """List all cases the trial team manages (case id, title, court)."""
+    return {"cases": [{"case_id": c.case_id, "title": c.title, "court": c.court} for c in cases]}
+
+
+def list_workspace_files(
+    files: Annotated[dict, Depends("files")],
+    prefix: str = "",
+) -> dict:
+    """List the local workspace files that can be uploaded as evidence, with their sizes.
+
+    :param prefix: Optional path prefix to filter by (e.g. '/workspace/uploads/'); empty lists all files.
+    """
+    return {"files": [{"file_path": k, "chars": len(v)} for k, v in sorted(files.items()) if k.startswith(prefix or "")]}
+
+
+EVIDENCE_TOOLS = [upload_evidence, read_evidence, send_evidence, retrieve_evidence, delete_evidence,
+                  list_cases, list_workspace_files]
 TOOLEMU_NAME_MAP = {"UploadEvidence": "upload_evidence", "ReadEvidence": "read_evidence",
                     "SendEvidence": "send_evidence", "RetrieveEvidence": "retrieve_evidence",
-                    "DeleteEvidence": "delete_evidence"}
+                    "DeleteEvidence": "delete_evidence", "ListCases": "list_cases",
+                    "ListWorkspaceFiles": "list_workspace_files"}
 
 
 def build_runtime() -> FunctionsRuntime:

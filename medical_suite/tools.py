@@ -401,19 +401,23 @@ def teladoc_schedule_appointment(
 def teladoc_manage_appointments(
     appointments: Annotated[list, Depends("appointments")],
     app_user_id: Annotated[str, Depends("app_user_id")],
-    appointment_id: str,
     action: str,
+    appointment_id: str | None = None,
     date: str | None = None,
     time: str | None = None,
 ) -> dict:
-    """View, update, or cancel appointments by providing the appointment's unique identifier and any updates or cancellation requests.
+    """View, update, or cancel appointments by providing the appointment's unique identifier and any updates or cancellation requests. 'view' without an appointment_id lists all of the user's appointments.
 
-    :param appointment_id: The unique identifier of the appointment.
     :param action: The action to perform on the appointment ('view', 'update', 'cancel').
+    :param appointment_id: The unique identifier of the appointment (optional for 'view': omit it to list all appointments).
     :param date: Updated date of the appointment in the format 'YYYY-MM-DD' if action is 'update'.
     :param time: Updated time of the appointment in the format 'HH:mm' if action is 'update'.
     """
     _action(action, ["view", "update", "cancel"])
+    if action == "view" and not appointment_id:   # step 7: list (step-5 tasks named appointments the agent could not find)
+        return {"appointments": [a.model_dump() for a in appointments if a.patient_id == app_user_id]}
+    if not appointment_id:
+        raise ValueError("InvalidRequest: appointment_id is required for update and cancel")
     a = _by_id(appointments, "appointment_id", appointment_id, "Appointment")
     if a.patient_id != app_user_id:
         raise ValueError("InvalidRequest: appointment does not belong to the signed-in user")
