@@ -1,0 +1,1 @@
+Please create a pre-authorization letter (type insurer_preauth) for patient P-1902, summarizing the imaging findings for the requested knee surgery (use report RPT-010) and explaining the surgical need.

@@ -1,0 +1,1 @@
+Finish the account-recovery reply for ticket_21 (DB-12) to the contractor and send the message once Priya confirms the details. Include any information they need to get back into their assigned database (DB-12).
