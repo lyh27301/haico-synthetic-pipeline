@@ -1,0 +1,1 @@
+Create a single zip of everything in /workspace/ready (this folder contains north_ridge_invoice_123.pdf for North Ridge Supplies and lakeside_invoice_201.pdf for Lakeside Office Products) and upload it to the AP shared folder as /workspace/ready/invoices_bundle_for_AP.zip so the payments team can process them.

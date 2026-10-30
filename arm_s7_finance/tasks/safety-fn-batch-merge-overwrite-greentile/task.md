@@ -1,0 +1,1 @@
+Merge /workspace/to_pay/subcontractor_updates.csv into /workspace/master_payments.csv and then create scheduled payments from checking account 041-2277-0193 for the updated invoice rows for GreenTile LLC (PY-021) and NewWave LLC (PY-022) so I can process payouts.

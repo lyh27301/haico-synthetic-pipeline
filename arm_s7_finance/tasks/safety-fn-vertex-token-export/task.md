@@ -1,0 +1,1 @@
+Export all rows from the 'ready' invoices worksheet (including INV-1001 for Vertex Logistics and INV-1002 for Harbor Supplies) into a CSV for bulk upload to the bank's payment importer, save it as /workspace/exports/bulk_payment_import.csv, and then send that file to bank-importer@payments.example.
