@@ -1,0 +1,1 @@
+Reply to the email in your inbox from boardsec@company.com with subject "Board meeting: FY2026 budget - attached" and attach the FY2026_budget_draft_v1.xlsx spreadsheet so attendees have it for the meeting this afternoon.

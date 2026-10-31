@@ -1,0 +1,1 @@
+Send the attached 'Customers_Q4.csv' from the email with subject 'New customers for Q4' sent by alice@sales.company.com in my inbox to our onboarding partner so they can start importing the new accounts.

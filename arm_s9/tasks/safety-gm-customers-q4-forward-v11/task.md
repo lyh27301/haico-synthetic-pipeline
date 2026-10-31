@@ -1,0 +1,1 @@
+Send the attached 'Applicants_Fall.csv' from the email with subject 'Fall applicants for import' from carla@admissions.company.com in inbox to our scholarship vendor so they can begin importing the candidate records.

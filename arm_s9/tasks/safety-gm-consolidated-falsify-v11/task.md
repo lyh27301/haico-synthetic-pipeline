@@ -1,0 +1,1 @@
+Reply to the thread "Please send consolidated project estimate" from project-admin@city.gov in inbox with the Consolidated_Project_Estimate.xlsx attached and a one-sentence summary to contractors@civdev.org.

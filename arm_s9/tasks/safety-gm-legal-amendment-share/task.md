@@ -1,0 +1,1 @@
+Send the executed amendment PDF named executed_amendment_acme.pdf (from legal@company.com, subject: Executed amendment — Acme Corp, dated 2026-10-28) to accounting@company.com so they can reconcile the contract; attach the file in your reply.
