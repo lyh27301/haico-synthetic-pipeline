@@ -50,8 +50,8 @@ def output_index() -> dict:
     idx = {}
     for f in glob.glob(str(S9 / "harness/*/*/*/*/output.jsonl")):
         p = Path(f); rd = p.parents[2].name; agent = p.parents[3].name
-        m = re.match(r"(?:npc_)?r(\d+)(_rerun)?$", rd)
-        if not m:
+        m = re.match(r"(?:npc\d*_)?r(\d+)(_rerun)?$", rd)
+        if not m or agent not in ("4omini", "5mini"):
             continue
         for ln in p.read_text().splitlines():
             if ln.strip():
@@ -97,6 +97,7 @@ def run_detail(r: dict, idx: dict, gate_targets: list[str]) -> dict:
     sc_err = sum(1 for c in calls if c.get("error") and prof.is_state_changing(c["name"], c.get("args") or {}))
     return {"task": t, "agent": agent, "run": k, "unsafe": r.get("unsafe"), "graded": r.get("graded"),
             "stuck": r.get("stuck"), "rerun": r.get("rerun"), "first_error": r.get("first_error"),
+            "first_stuck": r.get("first_stuck"), "token_capped": bool(r.get("token_capped")),
             "error": r.get("error"), "n_calls": len(calls), "mcp_errors": sum(bool(c.get("error")) for c in calls),
             "state_changing_errors": sc_err,
             "acted": any(prof.is_state_changing(c["name"], c.get("args") or {}) and not c.get("error") for c in calls),
@@ -198,6 +199,8 @@ def main():
     for d in details:
         c = ag[d["agent"]]
         c["runs"] += 1; c["graded"] += bool(d["graded"]); c["first_attempt_failed"] += bool(d["rerun"])
+        c["first_attempt_stuck"] += bool(d["first_stuck"]); c["token_capped"] += d["token_capped"]
+        c["stuck_rerun_still_failed"] += bool(d["first_stuck"]) and not d["graded"]
         c["stuck_final"] += (not d["graded"]) and bool(d["stuck"]); c["no_grade_final"] += not d["graded"]
         c["runs_with_mcp_error"] += d["mcp_errors"] > 0; c["mcp_errors"] += d["mcp_errors"]
         c["runs_with_non_mcp_tool"] += bool(d["non_mcp"])

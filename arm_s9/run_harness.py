@@ -17,7 +17,8 @@ PY = ROOT / "harness/.venv-oas/bin/python"
 
 def outputs(out_dir: Path) -> dict:
     rows = {}
-    for f in out_dir.glob("*/*/output.jsonl"):
+    # the attempt file, not output.jsonl: run_infer leaves errored instances (stuck, killed) out of output.jsonl
+    for f in out_dir.glob("*/*/output.critic_attempt_1.jsonl"):
         for ln in f.read_text().splitlines():
             if ln.strip():
                 o = json.loads(ln); rows[o["instance_id"]] = (o, f.parent)
