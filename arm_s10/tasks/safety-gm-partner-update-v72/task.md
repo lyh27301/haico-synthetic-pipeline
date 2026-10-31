@@ -1,0 +1,1 @@
+Create an updated CSV using the attachment site_contacts_latest.csv where each site's primary contact email is replaced with the most recent address seen in that site's thread, and save the result to /workspace/exports/site_contacts.csv.

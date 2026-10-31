@@ -1,4 +1,4 @@
-"""The 9 ToolEmu Gmail tools as real AgentDojo functions over GmailEnvironment.
+"""The 9 ToolEmu Gmail tools as real AgentDojo functions over GmailEnvironment, plus search_attachments (step 10).
 
 Each tool takes the env slices it needs via ``Depends(...)`` and actually
 mutates state. Docstrings use the AgentDojo ``:param:`` format so they become
@@ -84,9 +84,29 @@ def send_email(
     return {"success": True}
 
 
+def _place_match(e: Email, pool: str, wanted: list[str]) -> bool:
+    """A folder/label filter term matches an email if it names the pool it is stored in ("inbox", "sent", "trash"),
+    its folder, or one of its labels, case-insensitively, with prefix matching on nested names ("Alerts" matches
+    "Alerts/Resolved"). Step 10: custom folders (e.g. "Alerts/Resolved") live in the inbox pool and were invisible to
+    the folder filter, which only knew the pool names; labels were matched exactly."""
+    names = [pool, e.folder or pool] + list(e.labels)
+    for w in wanted:
+        w = str(w).strip().lower().rstrip("/")
+        if w and any(n.lower() == w or n.lower().startswith(w + "/") for n in names):
+            return True
+    return False
+
+
+def _text_hit(e: Email, keywords: list[str]) -> bool:
+    """Keywords match subject, body, attachment file names and (text) attachment contents."""
+    hay = " ".join([e.subject, e.body] + [a.name + " " + a.content for a in e.attachments]).lower()
+    return any(str(k).lower() in hay for k in keywords)
+
+
 def search_emails(
     inbox: Annotated[list, Depends("inbox")],
     sent: Annotated[list, Depends("sent")],
+    trash: Annotated[list, Depends("trash")],
     keywords: list[str] | None = None,
     folders: list[str] | None = None,
     limit: int | None = None,
@@ -94,28 +114,31 @@ def search_emails(
     to: str | None = None,
     labels: list[str] | None = None,
 ) -> dict:
-    """Search emails in the mailbox by keyword / sender / folder.
+    """Search emails in the mailbox by keyword / sender / folder / label.
 
-    :param keywords: Keywords to match in subject or body. If null, match all.
-    :param folders: Folders to search (e.g. ["inbox","sent"]). If null, inbox+sent.
+    :param keywords: Keywords to match in the subject, body, attachment file names or attachment text. If null, match all.
+    :param folders: Folders or labels to search, including custom and nested ones (e.g. ["inbox"], ["sent"], ["Alerts/Resolved"]; "Alerts" also matches "Alerts/Resolved"). If null, inbox+sent.
     :param limit: Max number of results. If null, no limit.
     :param from_: Filter by sender email. If null, any sender.
     :param to: Filter by recipient email. If null, any recipient.
-    :param labels: Filter by labels. If null, any.
+    :param labels: Filter by labels or folders (case-insensitive; a parent name matches nested ones). If null, any.
     """
-    pools = {"inbox": inbox, "sent": sent}
-    use = folders or ["inbox", "sent"]
+    pools = {"inbox": inbox, "sent": sent, "trash": trash}
     results = []
-    for folder in use:
-        for e in pools.get(folder, []):
-            hay = (e.subject + " " + e.body).lower()
-            if keywords and not any(str(k).lower() in hay for k in keywords):
+    for pool, items in pools.items():
+        for e in items:
+            if folders:
+                if not _place_match(e, pool, _as_list(folders)):
+                    continue
+            elif pool == "trash":
+                continue
+            if keywords and not _text_hit(e, _as_list(keywords)):
                 continue
             if from_ and from_.lower() not in e.sender.lower():
                 continue
             if to and not any(to.lower() in r.lower() for r in e.recipients):
                 continue
-            if labels and not any(lbl in e.labels for lbl in labels):
+            if labels and not _place_match(e, pool, _as_list(labels)):
                 continue
             results.append(
                 {"id": e.id, "sender": e.sender, "recipients": e.recipients,
@@ -125,6 +148,34 @@ def search_emails(
     if limit:
         results = results[: int(limit)]
     return {"emails": results}
+
+
+def search_attachments(
+    inbox: Annotated[list, Depends("inbox")],
+    sent: Annotated[list, Depends("sent")],
+    query: str | list[str],
+    folders: list[str] | None = None,
+    limit: int | None = None,
+) -> dict:
+    """Search attachments by file name (and by content, for text attachments).
+
+    :param query: Text to match in the attachment file name or content (e.g. "enrollments_master.csv", "amendment"); a list matches any.
+    :param folders: Folders or labels to search (as in search_emails). If null, inbox+sent.
+    :param limit: Max number of results. If null, no limit.
+    """
+    terms = [t.lower() for t in _as_list(query)]
+    out = []
+    for pool, items in {"inbox": inbox, "sent": sent}.items():
+        for e in items:
+            if folders and not _place_match(e, pool, _as_list(folders)):
+                continue
+            for a in e.attachments:
+                if any(t in a.name.lower() or t in a.content.lower() for t in terms):
+                    out.append({"attachment_id": a.id, "name": a.name, "email_id": e.id, "subject": e.subject,
+                                "sender": e.sender, "folder": e.folder})
+    if limit:
+        out = out[: int(limit)]
+    return {"attachments": out}
 
 
 def read_email(
@@ -283,7 +334,7 @@ def download_attachment(
 
 
 GMAIL_TOOLS = [
-    send_email, search_emails, read_email, organize_email, delete_emails,
+    send_email, search_emails, search_attachments, read_email, organize_email, delete_emails,
     add_or_update_contact, delete_contact, search_contacts, download_attachment,
 ]
 
