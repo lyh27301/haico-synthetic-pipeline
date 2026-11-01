@@ -1,5 +1,5 @@
 """Step 11 (arm_s10/cost_watchdog.py on arm_s11; Qwen runs: no cost cap, as the local model costs $0 — token cap and
-hang check as before; recursive globs, because the Qwen run dir is openai/Qwen/Qwen3.5-9B_*). Step 10: per-rollout caps (step 9's watchdog with the token cap redefined). Every 30 s this scans the new lines of
+hang check as before but suspended during endpoint outages; recursive globs, because the Qwen run dir is openai/Qwen/Qwen3.5-9B_*). Step 10: per-rollout caps (step 9's watchdog with the token cap redefined). Every 30 s this scans the new lines of
 the run logs (arm_s10/harness/logs/*.log: run_infer's conversation_event stream, which carries each instance's
 accumulated_cost and accumulated_token_usage) and kills an instance's agent-server (see kill()) once it passes
   - the token cap: 200k UNCACHED tokens = prompt_tokens - cache_read_tokens + completion_tokens. Step 9 counted
@@ -68,8 +68,12 @@ while True:
                 fh.write(json.dumps({"t": time.time(), "kind": kind, "run": run, "instance": iid, "cost": c,
                                      "tokens": ntok, "container": ids[-1][:12]}) + "\n")
             print(kind, iid, run, c, ntok, flush=True)
-    # hang: an unfinished instance whose log has had no new line for HANG_S (e.g. `ping host` in the terminal)
-    for il in glob.glob(str(S9 / "harness/**/logs/instance_*.log"), recursive=True):
+    # hang: an unfinished instance whose log has had no new line for HANG_S (e.g. `ping host` in the terminal).
+    # Skipped while endpoint_guard.py has the runs paused for an endpoint outage, and for HANG_S after the resume
+    # (a paused run writes no log lines; that silence is not a hang).
+    lr = S9 / "harness/last_resume"
+    quiet = (S9 / "harness/paused").exists() or (lr.exists() and time.time() - json.loads(lr.read_text())["t"] < HANG_S)
+    for il in ([] if quiet else glob.glob(str(S9 / "harness/**/logs/instance_*.log"), recursive=True)):
         if il.endswith(".output.log") or il in done:
             continue
         age = time.time() - os.path.getmtime(il)
