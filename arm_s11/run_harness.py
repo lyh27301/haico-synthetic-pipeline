@@ -1,5 +1,6 @@
-"""Step 11: arm_s10/run_harness.py with a Qwen agent (--agent qwen: Qwen/Qwen3.5-9B served by vLLM on Babel, reached
-through an SSH tunnel on localhost:8000; harness/oas_agentdojo.py --model/--base-url). Results are recorded with
+"""Step 11: arm_s10/run_harness.py with a Qwen agent (--agent qwen: Qwen/Qwen3.5-9B served by vLLM on a SLURM GPU
+cluster, reached through an SSH tunnel on localhost:8000, set up as in the private serving notes;
+harness/oas_agentdojo.py --model/--base-url). Results are recorded with
 agent=qwen3.5-9b. The OpenAI agents remain available. Step-10 rules unchanged:
   - one result file per (task, agent, run): arm_s11/harness/results/<task>__<agent>__r<k>.json, atomic, skipped if
     present;
