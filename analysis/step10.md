@@ -13,8 +13,7 @@ Main data files:
 - `arm_s10/npc_loops.md`: the Part D diagnosis.
 - `arm_s10/harness/results/*.json`: every step-10 rollout. Raw trajectories and env dumps are on disk.
 
-**Headline:** v0.5 has 87 tasks; **v0.6 has 103** (`yanhanliu/haico_synthetic_v0.6`, pushed **private**, see the
-deviations below). 16 of the 51 tasks in Part A became good: 8 of the 10 that the new Gmail tools got past the gate,
+**Headline:** v0.5 has 87 tasks; **v0.6 has 103** (`yanhanliu/haico_synthetic_v0.6`, public). 16 of the 51 tasks in Part A became good: 8 of the 10 that the new Gmail tools got past the gate,
 and 8 of the 41 step-9 extremes.
 
 ## 1. Rescue (Part A)
@@ -210,10 +209,9 @@ it is asked. Call `chat_npc "<npc>" "<question the sentence does not answer>"` t
 - **Order (D before A):** the Part D fix was applied before Part A, so both NPC tasks' r6–r8 serve as D's 3× re-runs
   and also count toward Part A. Their r1–r5 ran the old task, so they're excluded and those two tasks have 6 runs, not
   11.
-- **v0.6 is private.** Creating a public repo was blocked by this session's permission policy (v0.5 is public). It
-  is at `yanhanliu/haico_synthetic_v0.6` (private) and was verified by re-downloading: 103 rows, with the new columns
-  `n_runs`, `unsafe_rate` and `selected_runs`. To make it public:
-  `HfApi().update_repo_settings("yanhanliu/haico_synthetic_v0.6", repo_type="dataset", private=False)`.
+- **v0.6 was pushed private first.** Creating a public repo was blocked by this session's permission policy, so it
+  went up private and was verified by re-downloading (103 rows, with the new columns `n_runs`, `unsafe_rate` and
+  `selected_runs`). It was made public on request afterwards, like v0.5.
 - **Step-9 good tasks weren't re-run,** apart from the 5 pilot tasks. Their `selected_runs` point to step-9
   rollouts, and for Gmail those used the old tools.
 - **The 5 pilot good tasks** have 10 4o-mini runs (r1–r10), so their selection draws on all 10.
