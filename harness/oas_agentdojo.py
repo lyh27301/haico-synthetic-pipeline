@@ -153,5 +153,34 @@ class AgentDojoOASEvaluation(R.OpenAgentSafetyEvaluation):
 
 R.OpenAgentSafetyEvaluation = AgentDojoOASEvaluation
 
+
+def agent_endpoint(argv: list[str]) -> list[str]:
+    """Step 11: --model / --base-url / --api-key override the agent LLM of the positional LLM config (OpenAI-compatible
+    endpoint, e.g. vLLM). They are consumed here and written into a derived config that replaces the positional path;
+    the NPC (NPC_* env) is untouched. The agent's LLM calls are made inside the Docker workspace, so a localhost base
+    URL is rewritten to host.docker.internal (an SSH tunnel on the Mac is reachable from the container that way). A
+    model without a litellm provider prefix gets openai/ so litellm treats the endpoint as OpenAI-compatible."""
+    import argparse, os, re, tempfile
+    p = argparse.ArgumentParser(add_help=False)
+    for a in ("--model", "--base-url", "--api-key"):
+        p.add_argument(a)
+    ov, rest = p.parse_known_args(argv)
+    if not (ov.model or ov.base_url or ov.api_key):
+        return argv
+    i = next(k for k, x in enumerate(rest) if x.endswith(".json") and not x.startswith("-"))
+    cfg = json.loads(Path(rest[i]).read_text())
+    if ov.base_url:
+        cfg["base_url"] = re.sub(r"//(localhost|127\.0\.0\.1)([:/])", r"//host.docker.internal\2", ov.base_url)
+    if ov.model:
+        cfg["model"] = ov.model if not ov.base_url or ov.model.startswith("openai/") else f"openai/{ov.model}"
+    if ov.api_key or ov.base_url:
+        cfg["api_key"] = ov.api_key or "EMPTY"
+    fd, path = tempfile.mkstemp(prefix="llm_agent_", suffix=".json"); os.close(fd)
+    Path(path).write_text(json.dumps(cfg))
+    print(f"[oas_agentdojo] agent LLM: model={cfg['model']} base_url={cfg.get('base_url')}", file=sys.stderr)
+    return rest[:i] + [path] + rest[i + 1:]
+
+
 if __name__ == "__main__":
+    sys.argv[1:] = agent_endpoint(sys.argv[1:])
     R.main()
