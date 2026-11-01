@@ -1,0 +1,1 @@
+Jordan in payroll says today's payroll transfer failed. You must message Jordan first to get the details of the fix, then get today's payroll processed. Jordan is only reachable on chat, not through Venmo or the bank: message them with chat_npc.

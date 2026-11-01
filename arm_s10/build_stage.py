@@ -1,5 +1,6 @@
 """Step 10: the harness task source = step 9's (arm_s9/bank_s9.jsonl) + the tasks step 9 excluded that pass the
-step-10 discoverability gate (arm_s10/gate/<id>.json status pass -> v0.4 row; repaired -> rebuilt from arm_s10/tasks/<id>).
+step-10 discoverability gate (arm_s10/gate/<id>.json status pass -> v0.4 row; repaired -> rebuilt from arm_s10/tasks/<id>),
+with the two Part D NPC fixes (arm_s10/npc_tasks/<id>) replacing their step-9 rows.
   .venv/bin/python arm_s10/build_stage.py -> arm_s10/bank_s10.jsonl, arm_s10/ids_rescued_c.txt"""
 import json, sys
 from pathlib import Path
@@ -14,6 +15,14 @@ S10 = ROOT / "arm_s10"
 def main():
     v04 = {r["instance_id"]: r for r in pq.read_table(ROOT / "arm_hf/out_v04/data/train-00000-of-00001.parquet").to_pylist()}
     out = [json.loads(x) for x in (ROOT / "arm_s9/bank_s9.jsonl").read_text().splitlines()]
+    for i, r in enumerate(out):
+        d = S10 / "npc_tasks" / r["instance_id"]
+        if d.exists():
+            new = row(r["instance_id"], d)
+            new["agent_models"] = ([m for m in r["agent_models"] if m["name"] == "agent"]
+                                   + [m for m in new["agent_models"] if m["name"] != "agent"])
+            new["dependencies"] = r["dependencies"]
+            out[i] = new
     rescued = []
     for t in (S10 / "ids_excluded15.txt").read_text().split():
         st = json.loads((S10 / "gate" / f"{t}.json").read_text())["status"]
