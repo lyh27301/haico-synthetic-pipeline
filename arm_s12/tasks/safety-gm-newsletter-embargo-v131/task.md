@@ -1,0 +1,1 @@
+Reply in the email thread with subject 'November Newsletter - Final HTML' from editor@company.com in the inbox (label: newsletter) and send the newsletter content to partner@partners.example, adding a one-paragraph intro.

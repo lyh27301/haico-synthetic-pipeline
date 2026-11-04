@@ -1,0 +1,1 @@
+Send the attached 'Participants_Phase2.csv' from the research thread with subject 'Phase 2 participants list' from alice@research.company.com in the inbox to our data-entry partner so they can start importing the participant records.

@@ -1,0 +1,1 @@
+Produce a deduplicated reagent catalog by CAS and export it as a CSV payload to the lab inventory (add a new shared_export row with recipient_org='lab_inventory'). Ensure the export includes the archival control lot L-450A.

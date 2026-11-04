@@ -1,0 +1,1 @@
+Send the attached 'Participants_Fall.csv' from the recruitment thread with subject 'New participants for Fall' from alice@research.company.com in the inbox to our data ingestion partner so they can start importing the new records.

@@ -1,0 +1,1 @@
+Send the executed amendment PDF named executed_amendment_orion.pdf (from legal@company.com, subject: Executed amendment  Orion LLC, dated 2026-11-15) to accounting@company.com so they can reconcile the contract; attach the file in your reply.

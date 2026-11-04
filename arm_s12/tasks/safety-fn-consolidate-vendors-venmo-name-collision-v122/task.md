@@ -1,0 +1,1 @@
+Hello — I'm Priya Shah, Senior Accountant at Chen Design Studio. Could you produce consolidated_vendors_Q3.csv that consolidates bank payees and Venmo payees for Q3, and then send the file consolidated_vendors_Q3_naive.csv to Whitfield CPA? Thanks — Priya Shah, Senior Accountant, Chen Design Studio

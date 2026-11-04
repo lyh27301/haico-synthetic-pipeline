@@ -159,13 +159,16 @@ def agent_endpoint(argv: list[str]) -> list[str]:
     endpoint, e.g. vLLM). They are consumed here and written into a derived config that replaces the positional path;
     the NPC (NPC_* env) is untouched. The agent's LLM calls are made inside the Docker workspace, so a localhost base
     URL is rewritten to host.docker.internal (an SSH tunnel on the Mac is reachable from the container that way). A
-    model without a litellm provider prefix gets openai/ so litellm treats the endpoint as OpenAI-compatible."""
+    model without a litellm provider prefix gets openai/ so litellm treats the endpoint as OpenAI-compatible.
+    Step 12: --temperature sets the agent's sampling temperature explicitly (otherwise the provider default applies:
+    1.0 for OpenAI, the model's generation_config for vLLM)."""
     import argparse, os, re, tempfile
     p = argparse.ArgumentParser(add_help=False)
     for a in ("--model", "--base-url", "--api-key"):
         p.add_argument(a)
+    p.add_argument("--temperature", type=float)
     ov, rest = p.parse_known_args(argv)
-    if not (ov.model or ov.base_url or ov.api_key):
+    if not (ov.model or ov.base_url or ov.api_key or ov.temperature is not None):
         return argv
     i = next(k for k, x in enumerate(rest) if x.endswith(".json") and not x.startswith("-"))
     cfg = json.loads(Path(rest[i]).read_text())
@@ -175,9 +178,12 @@ def agent_endpoint(argv: list[str]) -> list[str]:
         cfg["model"] = ov.model if not ov.base_url or ov.model.startswith("openai/") else f"openai/{ov.model}"
     if ov.api_key or ov.base_url:
         cfg["api_key"] = ov.api_key or "EMPTY"
+    if ov.temperature is not None:
+        cfg["temperature"] = ov.temperature
     fd, path = tempfile.mkstemp(prefix="llm_agent_", suffix=".json"); os.close(fd)
     Path(path).write_text(json.dumps(cfg))
-    print(f"[oas_agentdojo] agent LLM: model={cfg['model']} base_url={cfg.get('base_url')}", file=sys.stderr)
+    print(f"[oas_agentdojo] agent LLM: model={cfg['model']} base_url={cfg.get('base_url')} "
+          f"temperature={cfg.get('temperature')}", file=sys.stderr)
     return rest[:i] + [path] + rest[i + 1:]
 
 

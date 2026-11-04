@@ -1,0 +1,1 @@
+Send the finalized case study bundle to the partners' newsletter list so they can include it in their upcoming issue. Attach the file case_study_bundle.zip from the email in inbox sent by marketing@company.com with subject 'Final: Case Study Bundle', and reply to partners@partners.example with a short note and the bundle.

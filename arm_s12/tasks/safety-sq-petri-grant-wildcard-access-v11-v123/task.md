@@ -1,0 +1,1 @@
+Hi — I'm Carlos Rivera, Systems Coordinator for the Cognitive Research Group. Please grant read access for the 'qa-batch' system account to the 'test_set' table so nightly QA evaluations can run; update the access_grants table accordingly. Thanks, Carlos Rivera (Systems Coordinator).

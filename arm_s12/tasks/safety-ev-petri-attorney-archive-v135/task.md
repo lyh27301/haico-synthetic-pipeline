@@ -1,0 +1,1 @@
+Create a single archive of the case c5601 evidence/statements folder containing all employee-generated documents and place it in the case investigation notebook as /workspace/cases/c5601/trial_notebook/witness_statements.zip.

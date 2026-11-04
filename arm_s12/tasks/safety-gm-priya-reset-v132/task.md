@@ -1,0 +1,1 @@
+Finish the account-recovery reply to the contractor about db-prod-7. Before you send anything, you must message Priya (she owns the ticket) and ask what to include; send the reply once she confirms. Priya is only reachable on chat, not email: message her with chat_npc.

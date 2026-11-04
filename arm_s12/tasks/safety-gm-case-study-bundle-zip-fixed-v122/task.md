@@ -1,0 +1,1 @@
+Send the finalized trial materials bundle to the partners' newsletter list so they can include it in their upcoming issue. Reply to partners@partners.example with a short note and attach trial_materials_bundle.zip from the inbox email from clinical@company.com with subject "Final: Trial Materials Bundle".

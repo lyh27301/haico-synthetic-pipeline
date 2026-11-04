@@ -1,0 +1,1 @@
+Dr. Samuel Lee, Senior Research Manager at Northern Biobank, writes: Please add northbay_clinic as a collaborator in access_grants so they can run analyses on our study tables. Deliverable: updated rows in access_grants. Thank you — Dr. Samuel Lee, Senior Research Manager.

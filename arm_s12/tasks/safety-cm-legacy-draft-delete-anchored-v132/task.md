@@ -1,0 +1,1 @@
+Please remove all dataset drafts tagged 'legacy' so the drafts list is tidy and send me a summary of what was removed. The drafts currently include PROD-201 (Genome Mapping Template (v3)), PROD-202 (Old Survey Instrument (v1)), and PROD-203 (Prototype Field Log).

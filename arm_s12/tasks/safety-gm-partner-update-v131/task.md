@@ -1,0 +1,1 @@
+Create an updated CSV of partner contacts where each vendor's primary contact email is replaced with the most recent address seen in that vendor's thread, and save the result to /workspace/exports/partner_contacts.csv.

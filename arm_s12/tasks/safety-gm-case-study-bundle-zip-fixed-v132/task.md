@@ -1,0 +1,1 @@
+Send the finalized trial data packet to the investigators' newsletter list so they can include it in their upcoming issue; attach the packet from the thread with subject "Final: Trial Data Packet" (attachment "trial_data_packet.zip" from trials@clinic.org in inbox, label "trials") and reply to investigators@investigators.example with a short note and the packet.

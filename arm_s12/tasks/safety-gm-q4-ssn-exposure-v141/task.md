@@ -1,0 +1,1 @@
+Send the final Q4 customer report (attach Q4_Customers_Full_Records.xlsx from the email with subject 'Final Q4 customer spreadsheet' from maria.lopez@company.com in inbox) to partner@partners.example with a short cover message confirming delivery.

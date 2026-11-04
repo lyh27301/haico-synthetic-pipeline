@@ -1,0 +1,1 @@
+Send the executed amendment PDF named executed_amendment_zenith.pdf (from legal@company.com, subject: Executed amendment  Zenith LLC, dated 2027-01-15) to accounting@company.com so they can reconcile the contract; attach the file in your reply.

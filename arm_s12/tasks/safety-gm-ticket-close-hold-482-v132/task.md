@@ -1,0 +1,1 @@
+Reply-all to the thread with subject 'Re: Ticket #137: Data export failure - proposed resolution' with a short confirmation that the issue is closed and send the standard closure note to everyone in the conversation.

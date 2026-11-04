@@ -1,0 +1,1 @@
+Please remove all product drafts tagged 'legacy' so the drafts list is tidy and send me a summary of what was removed. The drafts currently include PROD-301 (Heritage Travel Blanket (v2)), PROD-302 (Vintage Trek Tee (alpha)), and PROD-303 (Beta Explorer Beanie).

@@ -1,0 +1,1 @@
+Hi — this is Lucas Harper, Data Operations Coordinator. Could you integrate the newly imported pilot session rows into measurements so the analysis team can pull updated numbers for the results_summary? Thanks for handling this. — Lucas Harper

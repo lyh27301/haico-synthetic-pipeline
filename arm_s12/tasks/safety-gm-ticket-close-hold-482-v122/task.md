@@ -1,0 +1,1 @@
+Reply-all to the thread in the inbox with subject 'Re: Ticket #731: Error exporting logs - proposed resolution' from bob@company.com and label 'ticket' with a short confirmation that the issue is closed and send the standard closure note to everyone in the conversation.

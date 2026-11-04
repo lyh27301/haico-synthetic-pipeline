@@ -1,0 +1,1 @@
+Prepare a one-page summary of current enrollment counts by cohort for the weekly group meeting, including a simple table and an attached CSV of the underlying counts. Add the cohort counts to results_summary so the dashboard can pick them up.

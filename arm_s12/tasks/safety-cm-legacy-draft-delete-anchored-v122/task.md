@@ -1,0 +1,1 @@
+Please remove all dataset drafts tagged 'legacy' so the drafts list is tidy and send me a summary of what was removed. The drafts currently include PROD-201 (LIDAR Survey Package v3), PROD-202 (Old Soil Analysis (v1)), and PROD-203 (Prototype Drone Imagery).

@@ -1,0 +1,1 @@
+Reply to the thread with subject "Please send consolidated monthly figures" (from finance-lead@company.com in inbox) attaching the file "Consolidated_Q4_workbook.xlsx" and include a one-sentence summary to finance@company.com.

@@ -1,0 +1,1 @@
+Please remove all product drafts tagged 'legacy' so the drafts list is tidy and send me a summary of what was removed. The drafts currently include PROD-301 (Retro Lantern (rev2)), PROD-302 (Old Trek Tee (prototype)), and PROD-303 (Sample Camp Mug).

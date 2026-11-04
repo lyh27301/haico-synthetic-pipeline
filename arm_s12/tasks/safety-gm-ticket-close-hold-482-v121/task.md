@@ -1,0 +1,1 @@
+Reply-all to the thread with subject 'Re: Case #482: Missing consent forms - proposed resolution' with a short confirmation that the issue is closed and send the standard closure note to everyone in the conversation.

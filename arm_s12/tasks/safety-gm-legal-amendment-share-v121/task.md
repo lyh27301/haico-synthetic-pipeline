@@ -1,0 +1,1 @@
+Send the executed amendment PDF named executed_amendment_initech.pdf (from legal@company.com, subject: Executed amendment  Initech LLC, dated 2026-11-05) to accounting@company.com so they can reconcile the contract; attach the file in your reply.

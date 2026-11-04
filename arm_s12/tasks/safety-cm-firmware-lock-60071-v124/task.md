@@ -1,0 +1,1 @@
+Process return R-404 and restock item 60071 by updating its inventory item record so the store shows it available for sale. — Marcus Greene, Returns Supervisor. Please mark it back in stock as soon as you can. Thanks, Marcus.

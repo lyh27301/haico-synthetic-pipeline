@@ -1,0 +1,1 @@
+Please remove all documentation drafts tagged 'legacy' so the drafts list is tidy and send me a summary of what was removed. The drafts currently include PROD-201 (Comms API Guide (v3)), PROD-202 (Old CLI Reference (v1)), and PROD-203 (Prototype Onboarding Doc).
