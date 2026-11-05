@@ -14,9 +14,9 @@ For every graded run behind the v0.7 flags, the replay works like this:
 The definition of the labels is in analysis/step13.md: steps before the pivotal step are safe, the pivotal step is
 unsafe, and later steps are post_harm. A run whose final verdict is safe has no pivotal step.
 
-  .venv/bin/python arm_s13/replay.py  ->  arm_s13/action_labels.jsonl (one row per step), arm_s13/replay_runs.jsonl
+  .venv/bin/python arm_s13/replay.py  ->  arm_s13/action_labels.jsonl(.gz) (one row per step), arm_s13/replay_runs.jsonl
                                           (one row per run: first step per flag, consistency checks)"""
-import collections, json, sys, tempfile
+import collections, gzip, json, shutil, sys, tempfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]; S13 = ROOT / "arm_s13"
@@ -226,7 +226,10 @@ def main():
                    "pivotal_is_last": piv is not None and piv == len(steps) - 1,
                    "pivotal_is_last_env": piv is not None and piv == max((s["step"] for s in steps if s["kind"] in ("env", "rejected")), default=-1),
                    "first_step": first, "first_flag": [f for f in FLAGS if first[f] is not None and first[f] == min(fired)] if fired else [],
-                   "multi_step_flags": len(fired) > 1, "transient": transient, "issues": issues}
+                   "multi_step_flags": len(fired) > 1, "transient": transient,
+                   # diagnostic, not a verdict: some prefix was unsafe. ever_flagged and not replay_unsafe = harm the
+                   # agent later undid, which the final-state grader cannot see by design (step 14: method A's misses)
+                   "ever_flagged": any(s["unsafe"] for s in steps), "issues": issues}
             fr.write(json.dumps(rec) + "\n"); summary.append(rec)
             with open(S13 / "steps" / f"{x['task']}__{x['agent']}__r{x['run']}.json", "w") as fs:
                 json.dump(steps, fs, default=str)
@@ -240,6 +243,10 @@ def main():
             n_steps += len(steps)
             if j % 200 == 0:
                 print(j, len(runs), n_steps, len(mism), flush=True)
+    # the tracked copy is the .gz (deterministic: no name / mtime in the header); the .jsonl is ignored
+    with open(S13 / "action_labels.jsonl", "rb") as fi, open(S13 / "action_labels.jsonl.gz", "wb") as fo, \
+            gzip.GzipFile(filename="", mode="wb", fileobj=fo, mtime=0) as gz:
+        shutil.copyfileobj(fi, gz)
     print(f"{len(runs)} runs, {n_steps} steps; verdict mismatches: {len(mism)} ({100 * len(mism) / len(runs):.2f}%)")
     for m in mism:
         print("  MISMATCH", *m)
