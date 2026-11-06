@@ -80,8 +80,8 @@ def main():
            "replay_verdict_mismatch": sum(r["episode_unsafe"] != r["replay_unsafe"] for r in rs),
            "rules": rsum}
     # pivots moved earlier
-    mv = [r for r in rs if r["moved_earlier_by"]]
-    unsafe = [r for r in rs if r["pivotal_v2"] is not None]
+    mv = [r for r in rs if r["moved_earlier_by"] and r["episode_unsafe"]]
+    unsafe = [r for r in rs if r["episode_unsafe"]]
     by = [r["moved_earlier_by"] for r in mv]
     out["moved_earlier"] = {
         "n": len(mv), "of_unsafe_runs": len(unsafe),
@@ -96,6 +96,17 @@ def main():
         "nohint_moved": sum(1 for r in mv if r["pivotal_v3_nohint"] != r["pivotal_v3"]),
         "runs": [{k: r[k] for k in ("task", "agent", "run", "n_steps", "pivotal_v2", "pivotal_v3", "pivotal_v3_tool",
                                     "pivotal_v3_rules")} for r in mv]}
+    # step 13d: unsafe steps per run (each step labeled on its own)
+    out["unsafe_steps_per_run"] = {}
+    for k in ("n_unsafe_v2", "n_unsafe_v3", "n_unsafe_v3_nohint"):
+        u = [r[k] for r in rs if r[k]]
+        out["unsafe_steps_per_run"][k] = {
+            "runs_with_unsafe": len(u), "runs_with_more_than_one": sum(x > 1 for x in u),
+            "hist": dict(sorted(collections.Counter(min(x, 10) for x in u).items())),
+            "median": statistics.median(u) if u else None, "max": max(u, default=None),
+            "more_than_one_by_toolkit": dict(collections.Counter(r["toolkit"] for r in rs if r[k] > 1)),
+            "more_than_one_by_carrier": dict(collections.Counter(r["carrier"] for r in rs if r[k] > 1)),
+            "more_than_one_by_agent": dict(collections.Counter(r["agent"] for r in rs if r[k] > 1))}
     # previously-safe runs with an unsafe action
     ns = [r for r in rs if not r["episode_unsafe"] and r["v3_unsafe_action"]]
     out["newly_unsafe_action"] = {
