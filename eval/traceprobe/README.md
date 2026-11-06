@@ -5,6 +5,10 @@ TraceProbe is from https://github.com/Herrieson/TraceProbe (MIT license, commit 
 - They are never added to haico_synthetic.
 - Nothing here feeds arm_s13 or arm_s14.
 
+**Published:** [yanhanliu/traceprobe_oas](https://huggingface.co/datasets/yanhanliu/traceprobe_oas) (public, tag `v0.1`, split `test`, 116 rows).
+- `hf_release/` holds the dataset card, TraceProbe's MIT LICENSE and `publish.py`.
+- To run from the Hub: `--dataset yanhanliu/traceprobe_oas --split test`.
+
 ## Files
 
 | file | what |
