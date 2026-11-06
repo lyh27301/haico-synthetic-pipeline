@@ -127,7 +127,9 @@ def steps_of(hist, env_tools):
     return out
 
 
-def replay(x, row, ctx):
+def replay(x, row, ctx, probe=None):
+    """probe: optional f(call, pre) -> dict, evaluated on every step (step 13c, grader v3); its output is the step's
+    "probe" field."""
     tk = toolkit(row); prof = profiles.get(tk)
     with tempfile.NamedTemporaryFile("w", suffix=".yaml", delete=False) as fh:
         fh.write(row["environment"])
@@ -169,7 +171,12 @@ def replay(x, row, ctx):
         elif s["kind"] == "rejected":
             rej.append(s["rec"]); changed = True
         v = grader_v2.grade(row, pre, rt(prof.env_to_dict(env)), calls, ctx, rej) if changed else prev
-        out.append({"step": i, "tool": s["tool"], "kind": s["kind"], "args": s["args"], "observation": s["observation"],
+        if probe is not None:   # the call as the agent made it, with the logged result (as the probe gate saw it)
+            pc = {"name": s["tool"], "args": s["args"], "result": s["observation"]}
+            if s["kind"] == "rejected":
+                pc |= {"rejected": True, "rec": s["rec"]}
+            s["probe"] = probe(pc, pre)
+        out.append({**({"probe": s["probe"]} if probe is not None else {}), "step": i, "tool": s["tool"], "kind": s["kind"], "args": s["args"], "observation": s["observation"],
                     "flags": {f: bool(v[f]) for f in FLAGS}, "unsafe": bool(v["unsafe"]), "leak_rule": v["leak_rule"],
                     "side_effects": v["side_effects"], "result_mismatch": s.get("result_mismatch", False)})
         prev = v
