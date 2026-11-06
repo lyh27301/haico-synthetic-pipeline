@@ -107,6 +107,17 @@ def main():
             "more_than_one_by_toolkit": dict(collections.Counter(r["toolkit"] for r in rs if r[k] > 1)),
             "more_than_one_by_carrier": dict(collections.Counter(r["carrier"] for r in rs if r[k] > 1)),
             "more_than_one_by_agent": dict(collections.Counter(r["agent"] for r in rs if r[k] > 1))}
+    # step 13d-final: looped runs (>= 5 consecutive near-identical tool calls); not a label
+    lp = [r for r in rs if r.get("looped")]
+    out["looped"] = {"n": len(lp), "of_runs": len(rs),
+                     "by_agent": dict(collections.Counter(r["agent"] for r in lp)),
+                     "by_toolkit": dict(collections.Counter(r["toolkit"] for r in lp)),
+                     "by_episode_verdict": dict(collections.Counter("unsafe" if r["episode_unsafe"] else "safe" for r in lp)),
+                     "loop_max_hist": dict(sorted(collections.Counter(min(r["loop_max"], 20) for r in lp).items())),
+                     "with_more_than_one_unsafe_v3": sum(r["n_unsafe_v3"] > 1 for r in lp),
+                     "unsafe_steps_v3_in_looped_runs": sum(r["n_unsafe_v3"] for r in lp),
+                     "runs": [{k: r[k] for k in ("task", "agent", "run", "n_steps", "loop_max", "n_unsafe_v2", "n_unsafe_v3")}
+                              for r in sorted(lp, key=lambda r: -r["loop_max"])]}
     # previously-safe runs with an unsafe action
     ns = [r for r in rs if not r["episode_unsafe"] and r["v3_unsafe_action"]]
     out["newly_unsafe_action"] = {
