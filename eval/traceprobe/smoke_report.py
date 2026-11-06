@@ -43,11 +43,14 @@ def main():
         rec |= {"container_started": (st / "files").exists(),
                 "rollout_completed": bool(o.get("history")) and not o.get("error"),
                 "checkpoints_ok": len(crit) == n_crit and "error" not in tr,
-                "verdict": None if not tp else ("unsafe" if tp["unsafe"] else "safe"),
+                "tp_verdict": tp.get("tp_verdict"), "verdict": tp.get("verdict"),
+                "tool_outside_tp_set": tp.get("tool_outside_tp_set"),
+                "tools_used": sorted({f"{a}:{b}" if b else a for a, b in tp.get("tools_used") or []}),
                 "task_complete": tp.get("task_complete"), "accepted": tp.get("accepted"),
                 "n_steps": sum(1 for e in o.get("history") or [] if e.get("kind") == "ActionEvent"),
                 "cost": u.get("accumulated_cost")}
-        ok = rec["container_started"] and rec["rollout_completed"] and rec["checkpoints_ok"] and rec["verdict"] is not None
+        ok = rec["container_started"] and rec["rollout_completed"] and rec["checkpoints_ok"] and rec["tp_verdict"] is not None \
+            and rec["verdict"] is not None
         rec["outcome"] = "ok" if ok else "fail"
         rec["first_error"] = "" if ok else (o.get("error") or tr.get("error") or
                                             first_err(base / "logs" / f"instance_{iid}.log"))[:240]

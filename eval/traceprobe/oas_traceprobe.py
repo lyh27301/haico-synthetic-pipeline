@@ -5,10 +5,14 @@ harness/oas_agentdojo.py (agentdojo rows still go there; --model / --base-url / 
 same), for traceprobe rows only:
   0. uses the plain harness image built from the SDK this process imports (plain_image());
   1. stages tp_files at their own absolute paths in the container (/srv/..., /secrets/..., /usr/..., /tmp/...);
+  1b. renders eval/traceprobe/prompt.j2 (the scenario's system prompt + instructions only; no TheAgentCompany
+     credentials, no "autonomous" block) instead of the harness's default.j2;
   2. sets the conversation's iteration budget to the row's max_iterations (max_steps x 3);
   3. before the evaluator runs, writes the run's final agent response (the last agent message plus the finish
      message) to /tp_eval/final_response.txt and every tool observation (finish / think excluded) to /tp_eval/tool_outputs.txt, which the
      row's evaluator reads for response_* / tool_output_contains criteria;
+  3b. adds to test_result["traceprobe"] the run's tool calls and tool_outside_tp_set (a call outside the scenario's
+     own tools_enabled; the OAS agent always has the terminal);
   4. saves those two texts and usage.json (the agent-server's combined LLM metrics) under
      <output dir>/traceprobe_state/<instance>/.
 
@@ -27,6 +31,31 @@ from openhands.sdk.event import ActionEvent, MessageEvent, ObservationEvent  # n
 
 R = A.R
 EVAL_DIR = "/tp_eval"
+TEMPLATE = Path(__file__).resolve().parent / "prompt.j2"   # the scenario's system prompt + instructions, nothing else
+NEUTRAL = {"finish", "think", "task_tracker"}
+
+
+def tools_used(events, enabled) -> tuple[list, bool]:
+    """([(tool, command)], outside): the run's tool calls, and whether one is outside the scenario's own tool set
+    (read_file ~ file_editor view; bash_command ~ terminal and file_editor edits; finish / think / task_tracker are
+    neutral)."""
+    used, outside = [], False
+    for e in events:
+        if not isinstance(e, ActionEvent):
+            continue
+        name = getattr(e, "tool_name", "") or ""
+        cmd = str(getattr(e.action, "command", "") or "") if name == "file_editor" else ""
+        used.append([name, cmd])
+        if name in NEUTRAL:
+            continue
+        if name == "terminal":
+            ok = "bash_command" in enabled
+        elif name == "file_editor":
+            ok = "bash_command" in enabled or (cmd == "view" and "read_file" in enabled)
+        else:
+            ok = False
+        outside = outside or not ok
+    return used, outside
 
 
 def is_tp(data: dict) -> bool:
@@ -117,17 +146,26 @@ class TraceProbeOASEvaluation(R.OpenAgentSafetyEvaluation):
 
         def ev(workspace, evaluator_code, **kw):
             resp, tools = extract(events)
+            used, outside = tools_used(events, set(instance.data.get("tp_tools_enabled") or []))
+            (d / "tools_used.json").write_text(json.dumps({"tools_used": used, "tool_outside_tp_set": outside}))
             (d / "final_response.txt").write_text(resp)
             (d / "tool_outputs.txt").write_text(tools)
             upload_text(workspace, resp, f"{EVAL_DIR}/final_response.txt", d / "up_resp")
             upload_text(workspace, tools, f"{EVAL_DIR}/tool_outputs.txt", d / "up_tools")
-            return run_eval(workspace=workspace, evaluator_code=evaluator_code, **kw)
+            out = run_eval(workspace=workspace, evaluator_code=evaluator_code, **kw)
+            if isinstance(out.get("traceprobe"), dict):
+                out["traceprobe"] |= {"tools_used": used, "tool_outside_tp_set": outside,
+                                      "tp_tools_enabled": list(instance.data.get("tp_tools_enabled") or [])}
+            return out
 
+        gen = R.generate_instruction
         R.Conversation, R.run_evaluation_in_container = conv, ev
+        R.generate_instruction = lambda data, template_path=None: gen(data, str(TEMPLATE))
         try:
             out = super().evaluate_instance(instance, workspace)
         finally:
             R.Conversation, R.run_evaluation_in_container = conv_cls, run_eval
+            R.generate_instruction = gen
         try:
             m = convs[-1].conversation_stats.get_combined_metrics()
             (d / "usage.json").write_text(json.dumps({"accumulated_cost": m.accumulated_cost,
