@@ -4,16 +4,18 @@ in arm_s13/pilot_manifest.jsonl (no reselection). The manifest gains, per trajec
   v3_rules_hinted (those of them that are hinted rules fitted on this run), v3_rules_v2_blind_spot,
   v2_safe_v3_unsafe (graded safe by grader v2, with an unsafe action under v3).
   .venv/bin/python arm_s13/pilot13c.py  ->  arm_s13/pilot_manifest.jsonl, arm_s13/pilot/*.md (v2 + v3 labels),
-                                            arm_s13/pilot_blind/*.md (no labels), arm_s13/pilot13c.json"""
+                                            arm_s13/pilot13c.json
+arm_s13/pilot_blind/ is rendered by pilot_blind_full.py, and this script leaves it alone (it holds the annotations)."""
 import collections, json
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]; S13 = ROOT / "arm_s13"
 import sys; sys.path.insert(0, str(S13))
-from pilot13b import render_blind, tr  # noqa: E402
+from pilot13b import tr  # noqa: E402
 
 PF = ("probe_read", "probe_write", "probe_send")
 KEEP = ("task", "agent", "run", "label_side", "carrier", "toolkit", "goodness", "mechanic", "n_steps", "pivotal_step", "why")
+EXTRA = ("outcome", "utility", "attempt_wrong_id", "attempt_wrong_type", "annotated_kept")   # step 13e, when present
 
 
 def main():
@@ -31,16 +33,15 @@ def main():
     rows = {json.loads(l)["instance_id"]: json.loads(l) for f in ("arm_s11/bank_v06.jsonl", "arm_s12/bank_12b.jsonl")
             for l in (ROOT / f).read_text().splitlines()}
     ctx = json.loads((ROOT / "harness/agent_context.json").read_text())
-    for d in (S13 / "pilot", S13 / "pilot_blind"):
-        for f in d.glob("*.md"):
-            f.unlink()
+    for f in (S13 / "pilot").glob("*.md"):
+        f.unlink()
     out, counts = [], collections.Counter()
     for m in man:
         k = (m["task"], m["agent"], m["run"]); r = runs[k]
         spec = json.loads((S13 / "probes" / f"{m['task']}.json").read_text())
         rules = {x["id"]: x for v in spec["probes"].values() for x in v}
         rid = r["pivotal_v3_rules"]
-        rec = {q: m[q] for q in KEEP} | {"pivotal_step": r["pivotal_v2"], "n_unsafe_v2": r["n_unsafe_v2"],
+        rec = {q: m[q] for q in KEEP} | {q: m[q] for q in EXTRA if q in m} | {"pivotal_step": r["pivotal_v2"], "n_unsafe_v2": r["n_unsafe_v2"],
                                           "n_unsafe_v3": r["n_unsafe_v3"],
             "pivotal_step_v3": r["pivotal_v3"], "pivotal_v3_source": r["pivotal_v3_source"], "v3_rules": rid,
             "v3_rules_hinted": [x for x in rid if x in r["hinted_rules_fitted_here"]],
@@ -53,8 +54,6 @@ def main():
             counts[("v2", s["label_v2"])] += 1; counts[("v3", s["label_v3"])] += 1
         render(S13 / "pilot" / f"{m['task']}__{m['agent']}__r{m['run']}.md", rows[m["task"]], ctx.get(m["task"], ""), r, rec,
                steps, rules)
-        render_blind(S13 / "pilot_blind" / f"{m['task']}__{m['agent']}__r{m['run']}.md", rows[m["task"]],
-                     ctx.get(m["task"], ""), rec, steps)
     (S13 / "pilot_manifest.jsonl").write_text("".join(json.dumps(x) + "\n" for x in out))
     summ = {"trajectories": len(out), "steps": sum(v for (a, _), v in counts.items() if a == "v2"),
             "labels_v2": {l: v for (a, l), v in counts.items() if a == "v2"},
