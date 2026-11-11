@@ -11,6 +11,19 @@ Grading side channel (not agent-facing; no extra tools): if AGENTDOJO_STATE_DIR 
   calls.jsonl  one line per call: name, args, result, error
 so evaluator_code grades (pre, post) exactly as the driver does.
 
+--workspace (step 13f; off by default, so replays of earlier runs are unchanged): the agent's files on the container
+disk become visible to the toolkit (harness/workspace_bridge.py). Each call first snapshots /workspace (plus files the
+agent created under /tmp, /root, /home), a file argument the env does not hold is read from that snapshot, and the
+snapshot is written next to the state as workspace_pre.json / workspace_post.json (path -> text). pre.json and
+post.json keep their exact shape. --workspace-wins (v0.8 tasks, files staged on disk) reads an edited staged copy of an
+env file instead of the env's copy. --downloads also reads a /downloads/<id> attachment path as <id> (a tool-contract
+fix, separate switch).
+
+--task-file (step 13f-4; harness/state_seal.py): a JSON file {"environment": <env YAML text>, "key": <hex>} staged
+at a random path. The server reads it and deletes it (and its directory) on startup, before the agent can act, and
+seals every state dump with the key, so neither the task state (cue included) nor the grader's state is readable from
+the agent's terminal. Without it the server behaves as before (--env, plaintext dumps).
+
   python harness/gmail_mcp_server.py --toolkit gmail --env path/to/environment.yaml
 Env vars: AGENTDOJO_ENV (default for --env), AGENTDOJO_TOOLKIT (default for --toolkit), AGENTDOJO_STATE_DIR.
 
@@ -31,6 +44,8 @@ from mcp.server.lowlevel import Server  # noqa: E402
 from mcp.server.stdio import stdio_server  # noqa: E402
 
 from recipe import profiles  # noqa: E402
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import state_seal, workspace_bridge  # noqa: E402
 
 TOOLKITS = list(profiles.NAMES)
 
@@ -62,7 +77,11 @@ def tool_schemas(runtime, mode: str = "exact") -> list[dict]:
 
 
 class State:
-    def __init__(self, toolkit: str, env_path: str, state_dir: str | None):
+    def __init__(self, toolkit: str, env_path: str, state_dir: str | None, workspace: bool = False,
+                 downloads: bool = False, key: bytes | None = None, wins: bool = False):
+        import time
+        self.workspace, self.downloads, self.t0, self.key = workspace, downloads, time.time(), key
+        self.wins = wins
         self.prof = profiles.get(toolkit)
         self.env = self.prof.load_environment(env_path)
         self.runtime = (self.prof.runtime_for_env(self.env) if hasattr(self.prof, "runtime_for_env")
@@ -72,19 +91,37 @@ class State:
             self.dir.mkdir(parents=True, exist_ok=True)
             self._write("pre.json", self.prof.env_to_dict(self.env))
             self._write("post.json", self.prof.env_to_dict(self.env))
+            if self.workspace:
+                ws = workspace_bridge.snapshot(since=self.t0, exclude=[self.dir] if self.dir else [])
+                self._write("workspace_pre.json", ws); self._write("workspace_post.json", ws)
 
     def _write(self, name: str, obj) -> None:
         tmp = self.dir / (name + ".tmp")
-        tmp.write_text(json.dumps(obj, default=str))
+        data = (obj if isinstance(obj, str) else json.dumps(obj, default=str)).encode()
+        tmp.write_bytes(state_seal.seal(self.key, data) if self.key else data)
         tmp.replace(self.dir / name)
 
     def call(self, name: str, args: dict) -> str:
-        out, err = self.runtime.run_function(self.env, name, args)
+        ws, note = None, None
+        if self.workspace or self.downloads:
+            ws = workspace_bridge.snapshot(since=self.t0, exclude=[self.dir] if self.dir else []) if self.workspace else {}
+            out, err, note = workspace_bridge.call(self.prof, self.env, self.runtime, name, args, ws, self.downloads,
+                                                  self.wins)
+        else:
+            out, err = self.runtime.run_function(self.env, name, args)
         result = {"error": err} if err else out
         if self.dir:
             self._write("post.json", self.prof.env_to_dict(self.env))
-            with open(self.dir / "calls.jsonl", "a") as fh:
-                fh.write(json.dumps({"name": name, "args": args, "result": result, "error": err}, default=str) + "\n")
+            if self.workspace:
+                self._write("workspace_post.json", ws)
+            line = json.dumps({"name": name, "args": args, "result": result, "error": err,
+                               **({"workspace": note} if note else {})}, default=str) + "\n"
+            if self.key:   # sealed: the whole log is rewritten each call
+                self.calls = getattr(self, "calls", "") + line
+                self._write("calls.jsonl", self.calls)
+            else:
+                with open(self.dir / "calls.jsonl", "a") as fh:
+                    fh.write(line)
         return json.dumps(result, default=str)
 
 
@@ -108,10 +145,31 @@ def main(argv=None) -> None:
     ap.add_argument("--toolkit", choices=TOOLKITS, default=os.environ.get("AGENTDOJO_TOOLKIT", "gmail"))
     ap.add_argument("--env", default=os.environ.get("AGENTDOJO_ENV"))
     ap.add_argument("--state-dir", default=os.environ.get("AGENTDOJO_STATE_DIR"))
+    ap.add_argument("--workspace-wins", action="store_true",
+                    help="v0.8 tasks: an edited staged copy of an env file wins over the env's copy")
+    ap.add_argument("--task-file", help="consumed on startup: {environment, key}; seals the state dumps")
     ap.add_argument("--schema", choices=["exact", "flat"], default=os.environ.get("AGENTDOJO_SCHEMA", "exact"))
+    ap.add_argument("--workspace", action="store_true", default=os.environ.get("AGENTDOJO_WORKSPACE") == "1")
+    ap.add_argument("--downloads", action="store_true", default=os.environ.get("AGENTDOJO_DOWNLOADS") == "1")
     a = ap.parse_args(argv)
-    env = a.env or str(ROOT / f"{a.toolkit}_suite" / "base_environment.yaml")
-    st = State(a.toolkit, env, a.state_dir)
+    env, key = a.env or str(ROOT / f"{a.toolkit}_suite" / "base_environment.yaml"), None
+    if a.task_file:
+        import shutil, tempfile
+        tf = Path(a.task_file); task = json.loads(tf.read_text())
+        tf.unlink()
+        if tf.parent != Path("/") and not any(tf.parent.iterdir()):
+            shutil.rmtree(tf.parent, ignore_errors=True)
+        key = bytes.fromhex(task["key"])
+        # the YAML is needed on disk only while it loads; inside the state dir it is outside the workspace snapshot
+        if a.state_dir:
+            Path(a.state_dir).mkdir(parents=True, exist_ok=True)
+        fd, env = tempfile.mkstemp(suffix=".yaml", dir=a.state_dir); os.close(fd)
+        Path(env).write_text(task["environment"])
+    try:
+        st = State(a.toolkit, env, a.state_dir, a.workspace, a.downloads, key, a.workspace_wins)
+    finally:
+        if a.task_file:
+            os.unlink(env)
     server = build_server(st, a.schema)
 
     async def run():

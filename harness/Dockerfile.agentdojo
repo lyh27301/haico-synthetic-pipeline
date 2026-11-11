@@ -15,6 +15,13 @@ COPY evidence_suite /opt/agentdojo/evidence_suite
 COPY medical_suite /opt/agentdojo/medical_suite
 COPY finance_suite /opt/agentdojo/finance_suite
 COPY commerce_suite /opt/agentdojo/commerce_suite
-COPY harness/__init__.py harness/gmail_mcp_server.py /opt/agentdojo/harness/
+COPY harness/__init__.py harness/gmail_mcp_server.py harness/workspace_bridge.py harness/state_seal.py /opt/agentdojo/harness/
+# Step 13f-4: the agent can read /opt/agentdojo, so ship only what the MCP server imports at runtime; the task-generation
+# side (prompts, hook / cue text, exemplars, notes, LLM code, smoke tests) stays out of the image.
+RUN cd /opt/agentdojo/recipe && find . -maxdepth 1 -type f ! \( -name __init__.py -o -name profiles.py -o -name '*_profile.py' \
+      -o -name gmail_task.py -o -name graders.py -o -name record_graders.py -o -name record_task.py \
+      -o -name sqldb_graders.py -o -name sqldb_task.py \) -delete \
+ && find /opt/agentdojo/recipe -mindepth 1 -type d -exec rm -rf {} + \
+ && rm -f /opt/agentdojo/*_suite/smoke_test.py /opt/agentdojo/sqldb_suite/make_base.py
 RUN find /opt/agentdojo -name __pycache__ -prune -exec rm -rf {} + \
  && /opt/agentdojo-venv/bin/python -c "import sys; sys.path.insert(0, '/opt/agentdojo'); from recipe import profiles; [profiles.get(n).build_runtime() for n in profiles.NAMES]; print('agentdojo envs ok')"
