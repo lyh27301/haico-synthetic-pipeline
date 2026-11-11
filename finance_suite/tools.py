@@ -32,14 +32,15 @@ def _account(accounts, number):
     for a in accounts:
         if d and _digits(a.account_number) == d:
             return a
-    raise ValueError(f"AccountNotFound: no account {number!r} belongs to the user")
+    raise ValueError(f"AccountNotFound: no account {number!r} belongs to the user; "
+                     f"bank_get_account_information(account_type='all') lists the user's accounts")
 
 
 def _payee(payees, payee_id):
     for p in payees:
         if p.payee_id == payee_id:
             return p
-    raise ValueError(f"PayeeNotFound: no payee {payee_id!r}")
+    raise ValueError(f"PayeeNotFound: no payee {payee_id!r}; bank_search_payee returns payee ids")
 
 
 def _amount(amount) -> float:
@@ -295,7 +296,8 @@ def bank_manage_scheduled_payments(
         return {"success": True, "payment": s.model_dump()}
     s = next((x for x in scheduled_payments if x.payment_id == payment_id), None)
     if s is None:
-        raise ValueError(f"PaymentNotFound: no scheduled payment {payment_id!r}")
+        raise ValueError(f"PaymentNotFound: no scheduled payment {payment_id!r}; "
+                         f"bank_manage_scheduled_payments(action='list') lists them")
     if act == "approve":
         if s.status != "pending_approval":
             raise ValueError(f"InvalidRequest: {payment_id} is {s.status}, not pending_approval")
@@ -321,14 +323,15 @@ def bank_send_statement(
     recipient: str,
     note: str | None = None,
 ) -> dict:
-    """Send a downloaded statement file (from GetAccountStatement with download=true) to a recipient by email.
+    """Send a downloaded statement file (from GetAccountStatement with download=true), or another file the user holds (listed by bank_list_files), to a recipient by email.
 
-    :param file_path: The statement file path returned by GetAccountStatement.
+    :param file_path: The statement file path returned by GetAccountStatement, or a file path listed by bank_list_files.
     :param recipient: The recipient's email address or name.
     :param note: An optional cover note.
     """
     if file_path not in files:
-        raise ValueError(f"FileNotFound: {file_path!r}; download the statement first (available: {sorted(files)})")
+        raise ValueError(f"FileNotFound: {file_path!r}; bank_list_files lists the files that can be sent, and "
+                         f"GetAccountStatement with download=true adds a statement (available: {sorted(files)})")
     content = files[file_path]
     acct = ""
     for a in accounts:
@@ -349,7 +352,7 @@ def _vuser(users, username):
     for x in users:
         if x.username.lower() == u:
             return x
-    raise ValueError(f"UserNotFound: no Venmo user @{u}")
+    raise ValueError(f"UserNotFound: no Venmo user @{u}; venmo_search_users finds usernames")
 
 
 def _vt_id(txs):
@@ -422,7 +425,8 @@ def venmo_handle_request(
         raise ValueError("InvalidRequest: action must be 'confirm' or 'decline'")
     t = next((x for x in txs if x.transaction_id == transaction_id), None)
     if t is None:
-        raise ValueError(f"TransactionNotFound: no transaction {transaction_id!r}")
+        raise ValueError(f"TransactionNotFound: no transaction {transaction_id!r}; venmo_search_transactions lists "
+                         f"transaction ids")
     if t.type != "request" or t.status != "pending" or t.to_username != env_user:
         raise ValueError(f"InvalidRequest: {transaction_id} is not a pending request addressed to @{env_user}")
     if act == "confirm":
@@ -446,7 +450,7 @@ def _linked(linked, account_id):
     for a in linked:
         if a.account_id == account_id or (account_id and str(account_id)[-4:] == a.last4):
             return a
-    raise ValueError(f"AccountNotFound: no linked account {account_id!r}")
+    raise ValueError(f"AccountNotFound: no linked account {account_id!r}; venmo_list_linked_accounts lists them")
 
 
 def venmo_add_money(
@@ -543,9 +547,18 @@ def venmo_list_linked_accounts(linked: Annotated[list, Depends("linked_accounts"
     return {"accounts": [a.model_dump() for a in linked]}
 
 
+def bank_list_files(files: Annotated[dict, Depends("files")], prefix: str = "") -> dict:
+    """List the files the user holds that can be sent with bank_send_statement (downloaded statements and other files), with their sizes.
+
+    :param prefix: Optional path prefix to filter by; empty lists all files.
+    """
+    # step 13g: the lookup bank_send_statement lacked (its file_path could only be learned from an error)
+    return {"files": [{"file_path": k, "chars": len(v)} for k, v in sorted(files.items()) if k.startswith(prefix or "")]}
+
+
 BANK_TOOLS = [bank_get_account_information, bank_transfer_funds, bank_search_payee, bank_pay_bill,
               bank_get_account_statement, bank_search_transactions, bank_list_bills, bank_manage_scheduled_payments,
-              bank_send_statement]
+              bank_send_statement, bank_list_files]
 VENMO_TOOLS = [venmo_send_money, venmo_request_money, venmo_handle_request, venmo_check_balance, venmo_add_money,
                venmo_withdraw_money, venmo_search_transactions, venmo_view_friends_list, venmo_search_users,
                venmo_list_linked_accounts]

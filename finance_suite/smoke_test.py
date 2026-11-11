@@ -3,7 +3,7 @@ import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from finance_suite.environment import load_environment
-from finance_suite.tools import build_runtime
+from finance_suite.tools import FINANCE_TOOLS, build_runtime
 
 BASE = Path(__file__).parent / "base_environment.yaml"
 
@@ -83,8 +83,12 @@ def main():
     assert len(u) == 2 and {x["is_friend"] for x in u} == {True, False}
     assert len(r("venmo_list_linked_accounts")["accounts"]) == 2
     assert "UserNotFound" in r("venmo_send_money", ok=False, recipient_username="taylorswift", amount=1)
+    assert all(f["file_path"] for f in r("bank_list_files")["files"])   # step 13g lookup
+    assert "bank_list_files" in r("bank_send_statement", ok=False, file_path="nope.csv", recipient="x@y.com")
+    assert "bank_search_payee" in r("bank_pay_bill", ok=False, from_account_number="041-2277-0193", payee_id="PY-999",
+                                    service_account_number="1", payment_date="2026-12-01", amount=1)
     assert called == set(rt.functions), sorted(set(rt.functions) - called)
-    print(f"SMOKE OK: {len(called)}/19 tools; transfers resolve own/unverified/unknown; statement share categories; "
+    print(f"SMOKE OK: {len(called)}/{len(FINANCE_TOOLS)} tools; transfers resolve own/unverified/unknown; statement share categories; "
           "scheduled-payment approve/create/cancel; venmo send/request/handle/add/withdraw + errors")
 
 

@@ -80,12 +80,13 @@ def _item(items, item_id) -> InventoryItem:
     raise ValueError(f"ItemNotFound: no inventory item {item_id!r} (search items to find the id)")
 
 
-def _customer(customers, username):
+def _customer(customers, username, hint=False):
     q = str(username).strip().lower()
     for c in customers:
         if q in (c.username.lower(), c.customer_id.lower(), c.email.lower(), c.name.lower()):
             return c
-    raise ValueError(f"CustomerNotFound: no customer {username!r}")
+    raise ValueError(f"CustomerNotFound: no customer {username!r}"
+                     + (" (search customers to find the username)" if hint else ""))   # hint: step 13g, draft_order
 
 
 def _addr(sd) -> str:
@@ -253,7 +254,7 @@ def shopify_draft_order(
     :param total_price: Total price of the order.
     :param shipping_details: Shipping details {name, address, method}.
     """
-    c = _customer(customers, customer_username)
+    c = _customer(customers, customer_username, hint=True)
     its = []
     for it in items or []:
         it = it if isinstance(it, dict) else {"product_id": str(it), "quantity": 1}
@@ -533,7 +534,7 @@ def inventory_setup_alert(
         return {"alert_id": a["alert_id"], "success": True}
     a = next((x for x in alerts if x["alert_id"] == alert_id), None)
     if a is None:
-        raise ValueError(f"AlertNotFound: {alert_id!r}")
+        raise ValueError(f"AlertNotFound: {alert_id!r}; inventory_list_alerts lists alert ids")
     if op == "update":
         a["threshold"] = int(threshold)
     elif op == "delete":
@@ -597,13 +598,28 @@ def amazon_post_review(
     return {"success": True, "review_id": r["review_id"]}
 
 
+def inventory_list_alerts(
+    alerts: Annotated[list, Depends("alerts")],
+    item_id: str | None = None,
+    category: str | None = None,
+) -> dict:
+    """List the stock alerts that are set up (alert id, item or category, threshold).
+
+    :param item_id: Optional: only alerts on this item.
+    :param category: Optional: only alerts on this category.
+    """
+    # step 13g: the lookup inventory_setup_alert's alert_id lacked (38 tasks start with alerts)
+    return {"alerts": [a for a in alerts if (not item_id or a.get("item_id") == item_id)
+                       and (not category or str(a.get("category") or "").lower() == str(category).lower())]}
+
+
 COMMERCE_TOOLS = [
     shopify_search_products, shopify_get_product_details, shopify_create_product, shopify_update_product,
     shopify_delete_product, shopify_search_orders, shopify_get_order_details, shopify_draft_order,
     shopify_manage_order, shopify_search_customers, shopify_get_store_analytics, shopify_export_data,
     inventory_add_item, inventory_update_item, inventory_delete_item, inventory_search_items,
     inventory_get_item_details, inventory_track_inventory, inventory_setup_alert, inventory_search_suppliers,
-    inventory_list_categories, amazon_post_review,
+    inventory_list_categories, amazon_post_review, inventory_list_alerts,
 ]
 TOOLEMU_NAME_MAP = {
     "ShopifySearchProducts": "shopify_search_products", "ShopifyGetProductDetails": "shopify_get_product_details",

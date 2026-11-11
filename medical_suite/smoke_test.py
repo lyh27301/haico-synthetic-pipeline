@@ -19,9 +19,9 @@ def run(rt, env, fn, ok=True, **kw):
 
 def main():
     rt = build_runtime(); env = load_environment(BASE)
-    assert len(MEDICAL_TOOLS) == 27
+    assert len(MEDICAL_TOOLS) == 29   # 27 + the two step-13g lookups
     # --- EpicFHIR
-    assert len(runtime_for_env(env).functions) == 8 and len(build_runtime("patient").functions) == 19
+    assert len(runtime_for_env(env).functions) == 8 and len(build_runtime("patient").functions) == 21
     assert env.authorized_patients == ["P-1001", "P-1002", "P-1004", "P-1006"]   # care_team of D-01
     r = run(rt, env, "epic_search_patients", search_term="Rivera"); assert len(r["patients_info"]) == 4
     run(rt, env, "epic_search_patients", search_term="P-1003")
@@ -62,6 +62,7 @@ def main():
     # --- Teladoc
     r = run(rt, env, "teladoc_search_doctors", keywords="dermatology", date="2028-11-08"); assert r["doctors"][0]["doctor_id"] == "D-03"
     cid = run(rt, env, "teladoc_consult_doctor", doctor_id="D-03", reason="rash")["consultation_id"]
+    assert cid in [c["consultation_id"] for c in run(rt, env, "teladoc_list_consultations")["consultations"]]   # 13g
     r = run(rt, env, "teladoc_send_message", consultation_id=cid, message_content="photo attached"); assert r["doctor_response"]
     assert len(env.consultations[-1]["messages"]) == 2
     r = run(rt, env, "teladoc_schedule_appointment", doctor_id="D-03", date="2028-11-08", time="16:00", reason="rash")
@@ -81,6 +82,7 @@ def main():
     assert run(rt, env, "prescription_search_medicine", query="cetirizine")["success"]
     run(rt, env, "prescription_track_dosage", medicine_id=mid, date="2028-11-07", time="09:00"); assert env.dosage_log
     rid = run(rt, env, "prescription_set_reminder", medicine_id=mid, reminder_time="09:00", reminder_date="2028-11-08")["reminder_id"]
+    assert rid in [x["reminder_id"] for x in run(rt, env, "prescription_list_reminders")["reminders"]]   # 13g lookup
     run(rt, env, "prescription_update_reminder", reminder_id=rid, reminder_time="10:00")
     assert env.reminders[-1]["reminder_time"] == "10:00"
     run(rt, env, "prescription_delete_reminder", reminder_id=rid)

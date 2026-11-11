@@ -1,4 +1,5 @@
-"""The 27 HAICosystem EpicFHIR (8) + Teladoc (11) + PrescriptionMedicineApp (8) tools as real AgentDojo
+"""The 27 HAICosystem EpicFHIR (8) + Teladoc (11) + PrescriptionMedicineApp (8) tools (+ 2 lookups added in step 13g:
+teladoc_list_consultations, prescription_list_reminders) as real AgentDojo
 functions over MedicalEnvironment. Argument names follow the HAICosystem contract (virtual_tools.py)."""
 
 from __future__ import annotations
@@ -24,17 +25,18 @@ def _patient(patients, pid) -> Patient:
     for p in patients:
         if p.patient_id == pid:
             return p
-    raise ValueError(f"PatientNotFound: no patient {pid!r}")
+    raise ValueError(f"PatientNotFound: no patient {pid!r}; epic_search_patients returns patient ids")
 
 
 def _doctor(doctors, did):
     for d in doctors:
         if d.doctor_id == did:
             return d
-    raise ValueError(f"DoctorNotFound: no doctor {did!r}")
+    raise ValueError(f"DoctorNotFound: no doctor {did!r}; search doctors (epic_search_doctors or "
+                     f"teladoc_search_doctors) to find the id")
 
 
-def _by_id(items, key, val, what):
+def _by_id(items, key, val, what, hint=True):
     for x in items:
         if (getattr(x, key, None) if not isinstance(x, dict) else x.get(key)) == val:
             return x
@@ -42,7 +44,17 @@ def _by_id(items, key, val, what):
         for x in items:
             if str(getattr(x, "name", "")).lower() == str(val).lower():
                 return x
-    raise ValueError(f"{what}NotFound: no {what.lower()} {val!r}")
+    raise ValueError(f"{what}NotFound: no {what.lower()} {val!r}" + (f"; {_LOOKUP[what]}" if hint and what in _LOOKUP else ""))
+
+
+_LOOKUP = {   # step 13g: each not-found error names the lookup that returns the id
+    "Document": "epic_manage_clinical_documents with action='list' lists the patient's documents",
+    "Appointment": "epic_manage_appointments with action='list' lists the patient's appointments",
+    "Report": "epic_manage_diagnostic_reports with action='list' lists the patient's reports",
+    "Medicine": "prescription_search_medicine finds the medicine id",
+    "Reminder": "prescription_list_reminders lists reminder ids",
+    "Consultation": "teladoc_list_consultations lists consultation ids",
+}
 
 
 def _action(action, allowed):
@@ -315,7 +327,8 @@ def epic_download_files(
     ids = file_ids if isinstance(file_ids, list) else [file_ids]
     missing = [f for f in ids if f not in files]
     if missing:
-        raise ValueError(f"FileNotFound: {missing}")
+        raise ValueError(f"FileNotFound: {missing}; file ids are listed in the patient's diagnostic reports "
+                         f"(epic_manage_diagnostic_reports, action='list')")
     owner = {r.file_id: r.patient_id for r in diagnostic_reports if r.file_id}
     for f in ids:
         if f not in downloads:
@@ -418,7 +431,7 @@ def teladoc_manage_appointments(
         return {"appointments": [a.model_dump() for a in appointments if a.patient_id == app_user_id]}
     if not appointment_id:
         raise ValueError("InvalidRequest: appointment_id is required for update and cancel")
-    a = _by_id(appointments, "appointment_id", appointment_id, "Appointment")
+    a = _by_id(appointments, "appointment_id", appointment_id, "Appointment", hint=False)   # already ok before step 13g: unchanged
     if a.patient_id != app_user_id:
         raise ValueError("InvalidRequest: appointment does not belong to the signed-in user")
     if action == "update":
@@ -677,6 +690,26 @@ def prescription_delete_reminder(
     return {"success": True}
 
 
+def teladoc_list_consultations(
+    consultations: Annotated[list, Depends("consultations")],
+    app_user_id: Annotated[str, Depends("app_user_id")],
+) -> dict:
+    """List the signed-in user's consultations (consultation id, doctor, reason, messages)."""
+    # step 13g: the lookup teladoc_send_message's consultation_id lacked
+    return {"consultations": [c for c in consultations if c.get("patient_id") == app_user_id]}
+
+
+def prescription_list_reminders(
+    reminders: Annotated[list, Depends("reminders")],
+    medicines: Annotated[list, Depends("medicines")],
+    app_user_id: Annotated[str, Depends("app_user_id")],
+) -> dict:
+    """List the reminders set for the signed-in user's medicines (reminder id, medicine id, date, time)."""
+    # step 13g: the lookup prescription_update_reminder / prescription_delete_reminder lacked
+    own = {m.medicine_id for m in medicines if m.patient_id == app_user_id}
+    return {"reminders": [r for r in reminders if r.get("medicine_id") in own]}
+
+
 MEDICAL_TOOLS = [
     epic_search_patients, epic_get_patient_details, epic_search_doctors, epic_manage_clinical_documents,
     epic_manage_appointments, epic_manage_patient_records, epic_manage_diagnostic_reports, epic_download_files,
@@ -684,7 +717,8 @@ MEDICAL_TOOLS = [
     teladoc_access_user_info, teladoc_access_medical_history, teladoc_request_prescription,
     teladoc_view_prescriptions, teladoc_send_message, teladoc_leave_review, teladoc_view_reviews,
     prescription_add_medicine, prescription_update_medicine, prescription_delete_medicine,
-    prescription_search_medicine, prescription_track_dosage, prescription_set_reminder,
+    prescription_search_medicine, prescription_track_dosage, prescription_set_reminder, prescription_list_reminders,
+    teladoc_list_consultations,
     prescription_update_reminder, prescription_delete_reminder,
 ]
 TOOLEMU_NAME_MAP = {
@@ -709,8 +743,8 @@ VANTAGES = ("clinic", "patient")
 
 
 def vantage_tools(vantage: str | None) -> list:
-    """clinic = the 8 Epic tools (clinic staff); patient = the 19 Teladoc + prescription-app tools
-    (the signed-in patient's assistant); None = all 27 (smoke test only)."""
+    """clinic = the 8 Epic tools (clinic staff); patient = the 21 Teladoc + prescription-app tools
+    (the signed-in patient's assistant); None = all 29 (smoke test only)."""
     if vantage is None:
         return MEDICAL_TOOLS
     if vantage not in VANTAGES:

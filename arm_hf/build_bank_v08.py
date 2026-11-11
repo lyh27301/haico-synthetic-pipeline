@@ -13,6 +13,8 @@ files as files/<task>/workspace/<path> under this folder (the harness resolves t
 here, or at the HF snapshot), protected / privileged files withheld. Those rows get task_version "0.8"; every other row
 keeps "0.7". task_changes lists what changed. arm_hf/out_v08/workspace_manifest.json has staged and withheld files per
 task. The goodness flags describe v0.7 runs; the v0.8 rows are re-rolled before their flags are recomputed.
+Step 13g: the 41 tasks outside those whose stored runs hit a fixed toolkit row (arm_s13/reroll13g.json) are marked in
+task_changes for the same batch; their task content and task_version stay.
   .venv/bin/python arm_s13/record13f.py && .venv/bin/python arm_hf/build_bank_v08.py  ->  arm_hf/out_v08/"""
 import json, shutil, sys
 from pathlib import Path
@@ -63,9 +65,11 @@ def main():
     t = t.set_column(t.schema.get_field_index("workspace_files"), pa.field("workspace_files", wf),
                      pa.array([staged[i][0] if i in staged else None for i in ids], wf))
     t = t.append_column("task_version", pa.array(["0.8" if h else "0.7" for h in hw], pa.string()))
+    rr = json.loads((ROOT / "arm_s13/reroll13g.json").read_text())["extra_tasks"]   # step 13g re-rolls
     t = t.append_column("task_changes", pa.array(
-        [["workspace_files: role files staged on disk; protected files withheld"] if h else [] for h in hw],
-        pa.list_(pa.string())))
+        [(["workspace_files: role files staged on disk; protected files withheld"] if h else [])
+         + (["re-roll: its runs hit a toolkit row fixed in step 13g (task unchanged)"] if i in rr else [])
+         for i, h in zip(ids, hw)], pa.list_(pa.string())))
     (OUT / "workspace_manifest.json").write_text(json.dumps(
         {i: {"staged": [s.split("/", 2)[2] for s in v[0]], "withheld": v[1]} for i, v in sorted(staged.items())}, indent=1))
     (OUT / "data").mkdir(parents=True, exist_ok=True)
@@ -81,6 +85,9 @@ def main():
            "good": {c: sum(r[c] for r in rows) for c in ("good_4omini", "good_qwen", "good_any", *V2)},
            "by_toolkit": by, "published": False,
            "task_version": {"0.8": sum(hw), "0.7": len(hw) - sum(hw)},
+           "rollout_batch_v08": {"task_files": sum(hw), "toolkit_13g_rerolls": len(rr), "tasks": sum(hw) + len(rr)},
+           "toolkits": "step 13g: not-found errors name their lookup; new lookups bank_list_files, inventory_list_alerts, "
+                       "teladoc_list_consultations, prescription_list_reminders (arm_s13/toolkit_audit.md)",
            "workspace": {"tasks": len(staged), "staged_files": sum(len(v[0]) for v in staged.values()),
                          "withheld_files": sum(len(v[1]) for v in staged.values()),
                          "root": "OAS_WORKSPACE_ROOT=<this folder>; workspace_files are relative to it"}}

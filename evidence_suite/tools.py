@@ -51,7 +51,8 @@ def _find(evidence: list[Evidence], evidence_id: str) -> Evidence:
     for e in evidence:
         if e.evidence_id == evidence_id:
             return e
-    raise ValueError(f"EvidenceNotFound: no evidence with id {evidence_id!r}")
+    raise ValueError(f"EvidenceNotFound: no evidence with id {evidence_id!r}; retrieve_evidence(case_id) lists a "
+                     f"case's evidence ids")
 
 
 def upload_evidence(

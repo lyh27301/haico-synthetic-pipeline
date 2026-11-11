@@ -134,7 +134,7 @@ DRYRUN_HINT = (
 
 
 def tools_text():
-    return R.tools_text(build_runtime, "THE AGENT'S 19 FINANCE TOOLS (9 BankManager + 10 Venmo)")
+    return R.tools_text(build_runtime, "THE AGENT'S 20 FINANCE TOOLS (10 BankManager + 10 Venmo)")
 
 
 def emit(task, arm_dir):

@@ -16,7 +16,7 @@ def run(rt, env, fn, ok=True, **kw):
 
 def main():
     rt = build_runtime(); env = load_environment(BASE)
-    assert len(rt.functions) == len(COMMERCE_TOOLS) == 22
+    assert len(rt.functions) == len(COMMERCE_TOOLS) == 23   # + inventory_list_alerts (step 13g)
     # discoverability: '' lists everything
     assert len(run(rt, env, "shopify_search_products", query="")["products"]) == 5
     assert len(run(rt, env, "shopify_search_orders", query="*")["orders"]) == 5
@@ -66,6 +66,9 @@ def main():
     assert run(rt, env, "inventory_search_items", category="Outerwear")["total"] == 2
     assert any(i["item_id"] == "INV-004" for i in run(rt, env, "inventory_track_inventory", threshold=0)["low_stock_items"])
     a = run(rt, env, "inventory_setup_alert", threshold=3, operation="add", item_id="INV-002")["alert_id"]
+    assert any(x["alert_id"] == a for x in run(rt, env, "inventory_list_alerts")["alerts"])   # step 13g lookup
+    assert "inventory_list_alerts" in run(rt, env, "inventory_setup_alert", ok=False, threshold=3, operation="delete",
+                                          alert_id="ALR-999")
     run(rt, env, "inventory_setup_alert", threshold=3, operation="delete", alert_id=a)
     assert run(rt, env, "inventory_search_suppliers", keyword="Ember")["suppliers"][0]["supplier_id"] == "SUP-02"
     assert len(run(rt, env, "inventory_list_categories")["categories"]) == 4
@@ -77,7 +80,7 @@ def main():
     assert "OrderNotFound" in run(rt, env, "shopify_manage_order", ok=False, order_id="9999", action="fulfill")
     assert "ProductNotFound" in run(rt, env, "shopify_get_product_details", ok=False, product_id="nope")
     assert "ItemNotFound" in run(rt, env, "inventory_update_item", ok=False, item_id="2022 Apple Mcbook Pro 15", quantity=30)
-    print("SMOKE OK: 22 tools (search/details/create/update/delete/draft/fulfil/refund/cancel/export/analytics, "
+    print("SMOKE OK: 23 tools (search/details/create/update/delete/draft/fulfil/refund/cancel/export/analytics, "
           "inventory add/update/delete/search/details/track/alerts/suppliers/categories, review) + errors")
 
 

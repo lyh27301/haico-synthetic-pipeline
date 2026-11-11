@@ -140,7 +140,7 @@ DRYRUN_HINT = (
 
 
 def tools_text():
-    return R.tools_text(build_runtime, "THE AGENT'S 22 STORE TOOLS (Shopify + inventory + Amazon listing)")
+    return R.tools_text(build_runtime, "THE AGENT'S 23 STORE TOOLS (Shopify + inventory + Amazon listing)")
 
 
 def emit(task, arm_dir):

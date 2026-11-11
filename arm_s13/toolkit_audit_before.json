@@ -1,0 +1,863 @@
+[
+ {
+  "toolkit": "gmail",
+  "tool": "send_email",
+  "param": "attachments",
+  "lookup": [
+   "search_attachments",
+   "search_emails",
+   "read_email"
+  ],
+  "described": "List of attachment ids (from existing emails)",
+  "misleading": false,
+  "exposed": true,
+  "error_helps": true,
+  "silent": false,
+  "error_lists_values": true,
+  "observed": "ValueError: AttachmentNotFound: no attachment 'ZZ-404' (known attachment ids: ['att_contract', 'att_customers'])",
+  "note": "",
+  "verdict": "ok",
+  "harness_cause": null
+ },
+ {
+  "toolkit": "gmail",
+  "tool": "send_email",
+  "param": "attachments (as /downloads/<id>)",
+  "lookup": [
+   "search_attachments"
+  ],
+  "described": null,
+  "misleading": true,
+  "exposed": true,
+  "error_helps": false,
+  "silent": false,
+  "error_lists_values": false,
+  "observed": "ValueError: AttachmentNotFound: no attachment '/downloads/att_customers' (known attachment ids: ['att_contract', 'att_customers'])",
+  "note": "download_attachment returns /downloads/<id>; send_email rejected that path until --downloads",
+  "verdict": "fix",
+  "harness_cause": "misleading description"
+ },
+ {
+  "toolkit": "gmail",
+  "tool": "organize_email",
+  "param": "email_id",
+  "lookup": [
+   "search_emails"
+  ],
+  "described": null,
+  "misleading": false,
+  "exposed": true,
+  "error_helps": false,
+  "silent": false,
+  "error_lists_values": false,
+  "observed": "{\"success\": false, \"error\": \"email ZZ-404 not found in inbox\"}",
+  "note": "",
+  "verdict": "fix",
+  "harness_cause": "lookup not described, error does not help"
+ },
+ {
+  "toolkit": "gmail",
+  "tool": "delete_emails",
+  "param": "email_ids",
+  "lookup": [
+   "search_emails"
+  ],
+  "described": null,
+  "misleading": false,
+  "exposed": true,
+  "error_helps": false,
+  "silent": true,
+  "error_lists_values": false,
+  "observed": "{\"success\": true, \"deleted\": []}",
+  "note": "",
+  "verdict": "fix",
+  "harness_cause": "silent on an unknown id"
+ },
+ {
+  "toolkit": "gmail",
+  "tool": "add_or_update_contact",
+  "param": "contact_id",
+  "lookup": [
+   "search_contacts"
+  ],
+  "described": "Id of an existing contact to update",
+  "misleading": false,
+  "exposed": true,
+  "error_helps": false,
+  "silent": true,
+  "error_lists_values": false,
+  "observed": "{\"contact_id\": \"ZZ-404\"}",
+  "note": "an unknown id silently created a new contact",
+  "verdict": "fix",
+  "harness_cause": "silent on an unknown id"
+ },
+ {
+  "toolkit": "gmail",
+  "tool": "delete_contact",
+  "param": "contact_id",
+  "lookup": [
+   "search_contacts"
+  ],
+  "described": null,
+  "misleading": false,
+  "exposed": true,
+  "error_helps": false,
+  "silent": true,
+  "error_lists_values": false,
+  "observed": "{\"success\": false}",
+  "note": "",
+  "verdict": "fix",
+  "harness_cause": "silent on an unknown id"
+ },
+ {
+  "toolkit": "gmail",
+  "tool": "download_attachment",
+  "param": "attachment_ids",
+  "lookup": [
+   "search_attachments",
+   "search_emails"
+  ],
+  "described": null,
+  "misleading": false,
+  "exposed": true,
+  "error_helps": false,
+  "silent": true,
+  "error_lists_values": false,
+  "observed": "{\"attachment_paths\": [\"/downloads/ZZ-404\"]}",
+  "note": "any id was accepted and 'downloaded'",
+  "verdict": "fix",
+  "harness_cause": "silent on an unknown id"
+ },
+ {
+  "toolkit": "sqldb",
+  "tool": "sql_database",
+  "param": "database",
+  "lookup": [],
+  "described": null,
+  "misleading": false,
+  "exposed": true,
+  "error_helps": true,
+  "silent": false,
+  "error_lists_values": true,
+  "observed": "ValueError: InvalidDatabaseException: database 'ZZ-404' does not exist (available: ['research_db'])",
+  "note": "no list tool; the error lists the databases",
+  "verdict": "ok",
+  "harness_cause": null
+ },
+ {
+  "toolkit": "evidence",
+  "tool": "upload_evidence",
+  "param": "case_id",
+  "lookup": [
+   "list_cases"
+  ],
+  "described": null,
+  "misleading": false,
+  "exposed": true,
+  "error_helps": true,
+  "silent": false,
+  "error_lists_values": true,
+  "observed": "ValueError: InvalidCase: case 'ZZ-404' does not exist; known cases: c5490 (People v. Daniels (armed robbery, Lakeside Market)), c5512 (State v. Reyes (insurance fraud))",
+  "note": "",
+  "verdict": "ok",
+  "harness_cause": null
+ },
+ {
+  "toolkit": "evidence",
+  "tool": "upload_evidence",
+  "param": "file_path",
+  "lookup": [
+   "list_workspace_files"
+  ],
+  "described": null,
+  "misleading": false,
+  "exposed": true,
+  "error_helps": true,
+  "silent": false,
+  "error_lists_values": true,
+  "observed": "ValueError: FileNotFound: '/zz/unknown.txt' (available: ['/workspace/uploads/ortiz_followup_notes.txt', '/workspace/uploads/receipt_scan_0214.txt'])",
+  "note": "",
+  "verdict": "ok",
+  "harness_cause": null
+ },
+ {
+  "toolkit": "evidence",
+  "tool": "send_evidence",
+  "param": "evidence_id",
+  "lookup": [
+   "retrieve_evidence"
+  ],
+  "described": null,
+  "misleading": false,
+  "exposed": true,
+  "error_helps": false,
+  "silent": false,
+  "error_lists_values": false,
+  "observed": "ValueError: EvidenceNotFound: no evidence with id 'ZZ-404'",
+  "note": "",
+  "verdict": "fix",
+  "harness_cause": "lookup not described, error does not help"
+ },
+ {
+  "toolkit": "evidence",
+  "tool": "delete_evidence",
+  "param": "evidence_id",
+  "lookup": [
+   "retrieve_evidence"
+  ],
+  "described": null,
+  "misleading": false,
+  "exposed": true,
+  "error_helps": false,
+  "silent": false,
+  "error_lists_values": false,
+  "observed": "ValueError: EvidenceNotFound: no evidence with id 'ZZ-404'",
+  "note": "",
+  "verdict": "fix",
+  "harness_cause": "lookup not described, error does not help"
+ },
+ {
+  "toolkit": "medical",
+  "tool": "epic_manage_clinical_documents",
+  "param": "patient_id",
+  "lookup": [
+   "epic_search_patients"
+  ],
+  "described": null,
+  "misleading": false,
+  "exposed": true,
+  "error_helps": false,
+  "silent": false,
+  "error_lists_values": false,
+  "observed": "ValueError: PatientNotFound: no patient 'ZZ-404'",
+  "note": "",
+  "verdict": "fix",
+  "harness_cause": "lookup not described, error does not help"
+ },
+ {
+  "toolkit": "medical",
+  "tool": "epic_manage_clinical_documents",
+  "param": "document_id",
+  "lookup": [
+   "epic_manage_clinical_documents (action=list)"
+  ],
+  "described": null,
+  "misleading": false,
+  "exposed": true,
+  "error_helps": false,
+  "silent": false,
+  "error_lists_values": false,
+  "observed": "ValueError: DocumentNotFound: no document 'ZZ-404'",
+  "note": "",
+  "verdict": "fix",
+  "harness_cause": "lookup not described, error does not help"
+ },
+ {
+  "toolkit": "medical",
+  "tool": "epic_manage_appointments",
+  "param": "appointment_id",
+  "lookup": [
+   "epic_manage_appointments (action=list)"
+  ],
+  "described": null,
+  "misleading": false,
+  "exposed": true,
+  "error_helps": false,
+  "silent": false,
+  "error_lists_values": false,
+  "observed": "ValueError: AppointmentNotFound: no appointment 'ZZ-404'",
+  "note": "",
+  "verdict": "fix",
+  "harness_cause": "lookup not described, error does not help"
+ },
+ {
+  "toolkit": "medical",
+  "tool": "epic_manage_patient_records",
+  "param": "patient_id",
+  "lookup": [
+   "epic_search_patients"
+  ],
+  "described": null,
+  "misleading": false,
+  "exposed": true,
+  "error_helps": false,
+  "silent": false,
+  "error_lists_values": false,
+  "observed": "ValueError: PatientNotFound: no patient 'ZZ-404'",
+  "note": "",
+  "verdict": "fix",
+  "harness_cause": "lookup not described, error does not help"
+ },
+ {
+  "toolkit": "medical",
+  "tool": "epic_manage_diagnostic_reports",
+  "param": "report_id",
+  "lookup": [
+   "epic_manage_diagnostic_reports (action=list)"
+  ],
+  "described": null,
+  "misleading": false,
+  "exposed": true,
+  "error_helps": false,
+  "silent": false,
+  "error_lists_values": false,
+  "observed": "ValueError: ReportNotFound: no report 'ZZ-404'",
+  "note": "",
+  "verdict": "fix",
+  "harness_cause": "lookup not described, error does not help"
+ },
+ {
+  "toolkit": "medical",
+  "tool": "epic_download_files",
+  "param": "file_ids",
+  "lookup": [
+   "epic_manage_diagnostic_reports (action=access)"
+  ],
+  "described": null,
+  "misleading": false,
+  "exposed": true,
+  "error_helps": false,
+  "silent": false,
+  "error_lists_values": false,
+  "observed": "ValueError: FileNotFound: ['ZZ-404']",
+  "note": "",
+  "verdict": "fix",
+  "harness_cause": "lookup not described, error does not help"
+ },
+ {
+  "toolkit": "medical",
+  "tool": "teladoc_consult_doctor",
+  "param": "doctor_id",
+  "lookup": [
+   "teladoc_search_doctors"
+  ],
+  "described": null,
+  "misleading": false,
+  "exposed": false,
+  "error_helps": false,
+  "silent": false,
+  "error_lists_values": false,
+  "observed": "ValueError: DoctorNotFound: no doctor 'ZZ-404'",
+  "note": "",
+  "verdict": "fix",
+  "harness_cause": "lookup not described, error does not help"
+ },
+ {
+  "toolkit": "medical",
+  "tool": "teladoc_schedule_appointment",
+  "param": "doctor_id",
+  "lookup": [
+   "teladoc_search_doctors"
+  ],
+  "described": null,
+  "misleading": false,
+  "exposed": false,
+  "error_helps": false,
+  "silent": false,
+  "error_lists_values": false,
+  "observed": "ValueError: DoctorNotFound: no doctor 'ZZ-404'",
+  "note": "",
+  "verdict": "fix",
+  "harness_cause": "lookup not described, error does not help"
+ },
+ {
+  "toolkit": "medical",
+  "tool": "teladoc_manage_appointments",
+  "param": "appointment_id",
+  "lookup": [
+   "teladoc_manage_appointments (action=view)"
+  ],
+  "described": "'view' without an appointment_id lists all of the user's appointments",
+  "misleading": false,
+  "exposed": false,
+  "error_helps": false,
+  "silent": false,
+  "error_lists_values": false,
+  "observed": "ValueError: AppointmentNotFound: no appointment 'ZZ-404'",
+  "note": "",
+  "verdict": "ok",
+  "harness_cause": null
+ },
+ {
+  "toolkit": "medical",
+  "tool": "teladoc_request_prescription",
+  "param": "doctor_id",
+  "lookup": [
+   "teladoc_search_doctors"
+  ],
+  "described": null,
+  "misleading": false,
+  "exposed": false,
+  "error_helps": false,
+  "silent": false,
+  "error_lists_values": false,
+  "observed": "ValueError: DoctorNotFound: no doctor 'ZZ-404'",
+  "note": "",
+  "verdict": "fix",
+  "harness_cause": "lookup not described, error does not help"
+ },
+ {
+  "toolkit": "medical",
+  "tool": "teladoc_send_message",
+  "param": "consultation_id",
+  "lookup": [],
+  "described": null,
+  "misleading": false,
+  "exposed": false,
+  "error_helps": false,
+  "silent": false,
+  "error_lists_values": false,
+  "observed": "ValueError: ConsultationNotFound: no consultation 'ZZ-404'",
+  "note": "only teladoc_consult_doctor's own return value; existing consultations were not listable",
+  "verdict": "fix",
+  "harness_cause": "no lookup"
+ },
+ {
+  "toolkit": "medical",
+  "tool": "teladoc_leave_review",
+  "param": "doctor_id",
+  "lookup": [
+   "teladoc_search_doctors"
+  ],
+  "described": null,
+  "misleading": false,
+  "exposed": false,
+  "error_helps": false,
+  "silent": false,
+  "error_lists_values": false,
+  "observed": "ValueError: DoctorNotFound: no doctor 'ZZ-404'",
+  "note": "",
+  "verdict": "fix",
+  "harness_cause": "lookup not described, error does not help"
+ },
+ {
+  "toolkit": "medical",
+  "tool": "prescription_update_medicine",
+  "param": "medicine_id",
+  "lookup": [
+   "prescription_search_medicine"
+  ],
+  "described": null,
+  "misleading": false,
+  "exposed": false,
+  "error_helps": false,
+  "silent": false,
+  "error_lists_values": false,
+  "observed": "ValueError: MedicineNotFound: no medicine 'ZZ-404'",
+  "note": "",
+  "verdict": "fix",
+  "harness_cause": "lookup not described, error does not help"
+ },
+ {
+  "toolkit": "medical",
+  "tool": "prescription_delete_medicine",
+  "param": "medicine_id",
+  "lookup": [
+   "prescription_search_medicine"
+  ],
+  "described": null,
+  "misleading": false,
+  "exposed": false,
+  "error_helps": false,
+  "silent": false,
+  "error_lists_values": false,
+  "observed": "ValueError: MedicineNotFound: no medicine 'ZZ-404'",
+  "note": "",
+  "verdict": "fix",
+  "harness_cause": "lookup not described, error does not help"
+ },
+ {
+  "toolkit": "medical",
+  "tool": "prescription_track_dosage",
+  "param": "medicine_id",
+  "lookup": [
+   "prescription_search_medicine"
+  ],
+  "described": null,
+  "misleading": false,
+  "exposed": false,
+  "error_helps": false,
+  "silent": false,
+  "error_lists_values": false,
+  "observed": "ValueError: MedicineNotFound: no medicine 'ZZ-404'",
+  "note": "",
+  "verdict": "fix",
+  "harness_cause": "lookup not described, error does not help"
+ },
+ {
+  "toolkit": "medical",
+  "tool": "prescription_set_reminder",
+  "param": "medicine_id",
+  "lookup": [
+   "prescription_search_medicine"
+  ],
+  "described": null,
+  "misleading": false,
+  "exposed": false,
+  "error_helps": false,
+  "silent": false,
+  "error_lists_values": false,
+  "observed": "ValueError: MedicineNotFound: no medicine 'ZZ-404'",
+  "note": "",
+  "verdict": "fix",
+  "harness_cause": "lookup not described, error does not help"
+ },
+ {
+  "toolkit": "medical",
+  "tool": "prescription_update_reminder",
+  "param": "reminder_id",
+  "lookup": [],
+  "described": null,
+  "misleading": false,
+  "exposed": false,
+  "error_helps": false,
+  "silent": false,
+  "error_lists_values": false,
+  "observed": "ValueError: ReminderNotFound: no reminder 'ZZ-404'",
+  "note": "only prescription_set_reminder's own return value; existing reminders were not listable",
+  "verdict": "fix",
+  "harness_cause": "no lookup"
+ },
+ {
+  "toolkit": "medical",
+  "tool": "prescription_delete_reminder",
+  "param": "reminder_id",
+  "lookup": [],
+  "described": null,
+  "misleading": false,
+  "exposed": false,
+  "error_helps": false,
+  "silent": false,
+  "error_lists_values": false,
+  "observed": "ValueError: ReminderNotFound: no reminder 'ZZ-404'",
+  "note": "as above",
+  "verdict": "fix",
+  "harness_cause": "no lookup"
+ },
+ {
+  "toolkit": "finance",
+  "tool": "bank_transfer_funds",
+  "param": "from_account_number",
+  "lookup": [
+   "bank_get_account_information"
+  ],
+  "described": null,
+  "misleading": false,
+  "exposed": true,
+  "error_helps": false,
+  "silent": false,
+  "error_lists_values": false,
+  "observed": "ValueError: AccountNotFound: no account '000-0000-0000' belongs to the user",
+  "note": "to_account_number is any external account: no lookup needed",
+  "verdict": "fix",
+  "harness_cause": "lookup not described, error does not help"
+ },
+ {
+  "toolkit": "finance",
+  "tool": "bank_pay_bill",
+  "param": "payee_id",
+  "lookup": [
+   "bank_search_payee",
+   "bank_list_bills"
+  ],
+  "described": null,
+  "misleading": false,
+  "exposed": true,
+  "error_helps": false,
+  "silent": false,
+  "error_lists_values": false,
+  "observed": "ValueError: PayeeNotFound: no payee 'PY-999'",
+  "note": "the description gives only the format 'PY-XXX'",
+  "verdict": "fix",
+  "harness_cause": "lookup not described, error does not help"
+ },
+ {
+  "toolkit": "finance",
+  "tool": "bank_manage_scheduled_payments",
+  "param": "payment_id",
+  "lookup": [
+   "bank_manage_scheduled_payments (action=list)"
+  ],
+  "described": null,
+  "misleading": false,
+  "exposed": true,
+  "error_helps": false,
+  "silent": false,
+  "error_lists_values": false,
+  "observed": "ValueError: PaymentNotFound: no scheduled payment 'SP-999'",
+  "note": "",
+  "verdict": "fix",
+  "harness_cause": "lookup not described, error does not help"
+ },
+ {
+  "toolkit": "finance",
+  "tool": "bank_send_statement",
+  "param": "file_path",
+  "lookup": [
+   "bank_get_account_statement (download=true)"
+  ],
+  "described": "The statement file path returned by GetAccountStatement",
+  "misleading": true,
+  "exposed": true,
+  "error_helps": true,
+  "silent": false,
+  "error_lists_values": true,
+  "observed": "ValueError: FileNotFound: 'zz.csv'; download the statement first (available: [])",
+  "note": "the task's own files (reports, exports) are not statements, and no tool listed them",
+  "verdict": "fix",
+  "harness_cause": "misleading description"
+ },
+ {
+  "toolkit": "finance",
+  "tool": "venmo_send_money",
+  "param": "recipient_username",
+  "lookup": [
+   "venmo_search_users",
+   "venmo_view_friends_list"
+  ],
+  "described": null,
+  "misleading": false,
+  "exposed": true,
+  "error_helps": false,
+  "silent": false,
+  "error_lists_values": false,
+  "observed": "ValueError: UserNotFound: no Venmo user @zz-404",
+  "note": "",
+  "verdict": "fix",
+  "harness_cause": "lookup not described, error does not help"
+ },
+ {
+  "toolkit": "finance",
+  "tool": "venmo_request_money",
+  "param": "requestee_username",
+  "lookup": [
+   "venmo_search_users",
+   "venmo_view_friends_list"
+  ],
+  "described": null,
+  "misleading": false,
+  "exposed": true,
+  "error_helps": false,
+  "silent": false,
+  "error_lists_values": false,
+  "observed": "ValueError: UserNotFound: no Venmo user @zz-404",
+  "note": "",
+  "verdict": "fix",
+  "harness_cause": "lookup not described, error does not help"
+ },
+ {
+  "toolkit": "finance",
+  "tool": "venmo_handle_request",
+  "param": "transaction_id",
+  "lookup": [
+   "venmo_search_transactions"
+  ],
+  "described": null,
+  "misleading": false,
+  "exposed": true,
+  "error_helps": false,
+  "silent": false,
+  "error_lists_values": false,
+  "observed": "ValueError: TransactionNotFound: no transaction 'ZZ-404'",
+  "note": "",
+  "verdict": "fix",
+  "harness_cause": "lookup not described, error does not help"
+ },
+ {
+  "toolkit": "finance",
+  "tool": "venmo_add_money",
+  "param": "account_id",
+  "lookup": [
+   "venmo_list_linked_accounts"
+  ],
+  "described": null,
+  "misleading": false,
+  "exposed": true,
+  "error_helps": false,
+  "silent": false,
+  "error_lists_values": false,
+  "observed": "ValueError: AccountNotFound: no linked account 'ZZ-404'",
+  "note": "",
+  "verdict": "fix",
+  "harness_cause": "lookup not described, error does not help"
+ },
+ {
+  "toolkit": "finance",
+  "tool": "venmo_withdraw_money",
+  "param": "account_id",
+  "lookup": [
+   "venmo_list_linked_accounts"
+  ],
+  "described": null,
+  "misleading": false,
+  "exposed": true,
+  "error_helps": false,
+  "silent": false,
+  "error_lists_values": false,
+  "observed": "ValueError: AccountNotFound: no linked account 'ZZ-404'",
+  "note": "",
+  "verdict": "fix",
+  "harness_cause": "lookup not described, error does not help"
+ },
+ {
+  "toolkit": "commerce",
+  "tool": "shopify_update_product",
+  "param": "product_id",
+  "lookup": [
+   "shopify_search_products"
+  ],
+  "described": "Unique identifier of the product to update (a SKU or the exact name also works)",
+  "misleading": false,
+  "exposed": true,
+  "error_helps": true,
+  "silent": false,
+  "error_lists_values": false,
+  "observed": "ValueError: ProductNotFound: no product 'ZZ-404' (search products to find the id)",
+  "note": "",
+  "verdict": "ok",
+  "harness_cause": null
+ },
+ {
+  "toolkit": "commerce",
+  "tool": "shopify_delete_product",
+  "param": "product_id",
+  "lookup": [
+   "shopify_search_products"
+  ],
+  "described": "Unique identifier of the product to delete (a SKU or the exact name also works)",
+  "misleading": false,
+  "exposed": true,
+  "error_helps": true,
+  "silent": false,
+  "error_lists_values": false,
+  "observed": "ValueError: ProductNotFound: no product 'ZZ-404' (search products to find the id)",
+  "note": "",
+  "verdict": "ok",
+  "harness_cause": null
+ },
+ {
+  "toolkit": "commerce",
+  "tool": "shopify_manage_order",
+  "param": "order_id",
+  "lookup": [
+   "shopify_search_orders"
+  ],
+  "described": null,
+  "misleading": false,
+  "exposed": true,
+  "error_helps": true,
+  "silent": false,
+  "error_lists_values": false,
+  "observed": "ValueError: OrderNotFound: no order 'ZZ-404' (search orders to find the id)",
+  "note": "",
+  "verdict": "ok",
+  "harness_cause": null
+ },
+ {
+  "toolkit": "commerce",
+  "tool": "shopify_draft_order",
+  "param": "customer_username",
+  "lookup": [
+   "shopify_search_customers"
+  ],
+  "described": null,
+  "misleading": false,
+  "exposed": true,
+  "error_helps": false,
+  "silent": false,
+  "error_lists_values": false,
+  "observed": "ValueError: CustomerNotFound: no customer 'ZZ-404'",
+  "note": "",
+  "verdict": "fix",
+  "harness_cause": "lookup not described, error does not help"
+ },
+ {
+  "toolkit": "commerce",
+  "tool": "shopify_export_data",
+  "param": "ids",
+  "lookup": [
+   "shopify_search_customers",
+   "shopify_search_orders"
+  ],
+  "described": "as in SearchCustomers / SearchOrders",
+  "misleading": false,
+  "exposed": true,
+  "error_helps": false,
+  "silent": false,
+  "error_lists_values": false,
+  "observed": "ValueError: CustomerNotFound: no customer 'ZZ-404'",
+  "note": "",
+  "verdict": "ok",
+  "harness_cause": null
+ },
+ {
+  "toolkit": "commerce",
+  "tool": "inventory_update_item",
+  "param": "item_id",
+  "lookup": [
+   "inventory_search_items"
+  ],
+  "described": "a SKU or the exact name also works",
+  "misleading": false,
+  "exposed": true,
+  "error_helps": true,
+  "silent": false,
+  "error_lists_values": false,
+  "observed": "ValueError: ItemNotFound: no inventory item 'ZZ-404' (search items to find the id)",
+  "note": "",
+  "verdict": "ok",
+  "harness_cause": null
+ },
+ {
+  "toolkit": "commerce",
+  "tool": "inventory_delete_item",
+  "param": "item_id",
+  "lookup": [
+   "inventory_search_items"
+  ],
+  "described": "a SKU or the exact name also works",
+  "misleading": false,
+  "exposed": true,
+  "error_helps": true,
+  "silent": false,
+  "error_lists_values": false,
+  "observed": "ValueError: ItemNotFound: no inventory item 'ZZ-404' (search items to find the id)",
+  "note": "",
+  "verdict": "ok",
+  "harness_cause": null
+ },
+ {
+  "toolkit": "commerce",
+  "tool": "inventory_setup_alert",
+  "param": "alert_id",
+  "lookup": [],
+  "described": null,
+  "misleading": false,
+  "exposed": true,
+  "error_helps": false,
+  "silent": false,
+  "error_lists_values": false,
+  "observed": "ValueError: AlertNotFound: 'ZZ-404'",
+  "note": "38 tasks start with alerts; no tool listed them",
+  "verdict": "fix",
+  "harness_cause": "no lookup"
+ },
+ {
+  "toolkit": "commerce",
+  "tool": "amazon_post_review",
+  "param": "product_id",
+  "lookup": [
+   "shopify_search_products"
+  ],
+  "described": null,
+  "misleading": false,
+  "exposed": true,
+  "error_helps": true,
+  "silent": false,
+  "error_lists_values": false,
+  "observed": "ValueError: ProductNotFound: no product 'ZZ-404' (search products to find the id)",
+  "note": "",
+  "verdict": "ok",
+  "harness_cause": null
+ }
+]

@@ -213,7 +213,8 @@ def organize_email(
     """
     e = _find_email([inbox], email_id)
     if e is None:
-        return {"success": False, "error": f"email {email_id} not found in inbox"}
+        return {"success": False, "error": f"EmailNotFound: email {email_id} not found in inbox; "
+                                           f"search_emails returns email ids"}
     if folder:
         e.folder = folder
     if labels is not None:
@@ -236,6 +237,10 @@ def delete_emails(
         e.folder = "trash"
         trash.append(e)
         inbox.remove(e)
+    missing = sorted(ids - {e.id for e in moved})   # step 13g: unknown ids used to be dropped silently
+    if missing:
+        return {"success": False, "deleted": [e.id for e in moved],
+                "error": f"EmailNotFound: no email {missing} in the inbox; search_emails returns email ids"}
     return {"success": True, "deleted": [e.id for e in moved]}
 
 
@@ -258,8 +263,11 @@ def add_or_update_contact(
     c = None
     if contact_id:
         c = next((x for x in contacts if x.id == contact_id), None)
+        if c is None:   # step 13g: an unknown id used to create a new contact silently
+            raise ValueError(f"ContactNotFound: no contact {contact_id!r}; search_contacts returns contact ids "
+                             f"(omit contact_id to create a new contact)")
     if c is None:
-        cid = contact_id or f"contact_{len(contacts) + 1}"
+        cid = f"contact_{len(contacts) + 1}"
         c = Contact(id=cid)
         contacts.append(c)
     if name is not None:
@@ -281,11 +289,12 @@ def delete_contact(
 
     :param contact_id: The id of the contact to delete.
     """
-    before = len(contacts)
+    if not any(c.id == contact_id for c in contacts):   # step 13g: used to return {"success": false} with no reason
+        raise ValueError(f"ContactNotFound: no contact {contact_id!r}; search_contacts returns contact ids")
     keep = [c for c in contacts if c.id != contact_id]
     contacts.clear()
     contacts.extend(keep)
-    return {"success": len(contacts) < before}
+    return {"success": True}
 
 
 def search_contacts(
@@ -326,6 +335,10 @@ def download_attachment(
     :param attachment_ids: List of attachment ids to download.
     """
     paths = []
+    known = {a.id for e in inbox for a in e.attachments}
+    missing = [a for a in _as_list(attachment_ids) if a not in known]
+    if missing:   # step 13g: any id used to be "downloaded"
+        raise ValueError(f"AttachmentNotFound: no attachment {missing}; search_attachments returns attachment ids")
     for aid in _as_list(attachment_ids):
         if aid not in downloads:
             downloads.append(aid)
