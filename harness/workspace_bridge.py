@@ -75,7 +75,8 @@ def snapshot(roots=("/workspace",), since: float | None = None, extra=("/tmp", "
             if d.startswith(SKIP_DIRS) and not d.startswith("/workspace"):
                 dirs[:] = []; continue
             dirs[:] = [x for x in dirs if (not x.startswith(".") or root == "/workspace")
-                       and not (d == "/workspace/workspace" and x in AGENT_SERVER_DIRS)]
+                       and not (d == "/workspace/workspace" and x in AGENT_SERVER_DIRS)
+                       and not (d == "/workspace" and x == ".git")]   # the harness's own `git init` (v0.8 smoke)
             for f in files:
                 p = os.path.join(d, f)
                 if exclude and p.startswith(exclude):
