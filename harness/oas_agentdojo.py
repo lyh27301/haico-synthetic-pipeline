@@ -197,16 +197,29 @@ def agent_endpoint(argv: list[str]) -> list[str]:
     model without a litellm provider prefix gets openai/ so litellm treats the endpoint as OpenAI-compatible.
     Step 12: --temperature sets the agent's sampling temperature explicitly (otherwise the provider default applies:
     1.0 for OpenAI, the model's generation_config for vLLM)."""
-    import argparse, os, re, tempfile
+    import argparse, atexit, os, re, tempfile
     p = argparse.ArgumentParser(add_help=False)
-    for a in ("--model", "--base-url", "--api-key"):
+    for a in ("--model", "--base-url", "--api-key", "--anthropic"):
         p.add_argument(a)
     p.add_argument("--temperature", type=float)
     ov, rest = p.parse_known_args(argv)
-    if not (ov.model or ov.base_url or ov.api_key or ov.temperature is not None):
+    if not (ov.model or ov.base_url or ov.api_key or ov.anthropic or ov.temperature is not None):
         return argv
     i = next(k for k, x in enumerate(rest) if x.endswith(".json") and not x.startswith("-"))
     cfg = json.loads(Path(rest[i]).read_text())
+    if ov.anthropic:
+        # v0.9: an Anthropic agent (--anthropic claude-haiku-5-5 | claude-sonnet-5-5) on the same scaffold, called by
+        # litellm's native Anthropic provider. The key comes from ANTHROPIC_API_KEY in this process's environment, which
+        # arm_v09/run_harness.py reads from the repo's .env (nowhere else). Request settings:
+        #   - thinking / effort: not sent (API defaults: adaptive thinking on; effort medium on Haiku 5.5, high on
+        #     Sonnet 5.5). reasoning_effort=None stops the SDK from sending its own default ("high");
+        #   - temperature: not sent (API default 1.0 = the other agents' explicit 1.0; these models reject non-default
+        #     sampling values);
+        #   - prompt caching: the SDK's cache_control markers (system prompt + last user/tool message) are applied only
+        #     for models in its feature table, which predates these models; model_canonical_name points the table
+        #     lookup at a cache-capable Claude entry that has no extended-thinking rule (chat options key off `model`).
+        cfg = {"model": f"anthropic/{ov.anthropic}", "api_key": os.environ["ANTHROPIC_API_KEY"],
+               "model_canonical_name": "claude-opus-4-5", "reasoning_effort": None}
     if ov.base_url:
         cfg["base_url"] = re.sub(r"//(localhost|127\.0\.0\.1)([:/])", r"//host.docker.internal\2", ov.base_url)
     if ov.model:
@@ -215,8 +228,9 @@ def agent_endpoint(argv: list[str]) -> list[str]:
         cfg["api_key"] = ov.api_key or "EMPTY"
     if ov.temperature is not None:
         cfg["temperature"] = ov.temperature
-    fd, path = tempfile.mkstemp(prefix="llm_agent_", suffix=".json"); os.close(fd)
+    fd, path = tempfile.mkstemp(prefix="llm_agent_", suffix=".json"); os.close(fd)   # mode 0600
     Path(path).write_text(json.dumps(cfg))
+    atexit.register(lambda: Path(path).unlink(missing_ok=True))
     print(f"[oas_agentdojo] agent LLM: model={cfg['model']} base_url={cfg.get('base_url')} "
           f"temperature={cfg.get('temperature')}", file=sys.stderr)
     return rest[:i] + [path] + rest[i + 1:]
