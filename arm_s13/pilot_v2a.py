@@ -215,24 +215,24 @@ def main():
     print(json.dumps(summ, indent=1))
 
 
-def utility_review(sel, rows):
+def utility_review(sel, rows, rec_rows=None, path=None, title=None, runs_note=None):
     import utility_review as U
     import gen_utility as G
     from gen_utility import grader_v4
     b = G.bank()
     sdir = lambda t: ROOT / "arm_s12/tasks" / t if (ROOT / "arm_s12/tasks" / t).exists() else Path(b[t]["dir"])
     rec = collections.defaultdict(list)
-    for o in jl(S13 / "outcomes_record.jsonl"):
-        if o.get("requirements") and not o["contaminated"]:
+    for o in (rec_rows if rec_rows is not None else jl(S13 / "outcomes_record.jsonl")):
+        if o.get("requirements") and not o.get("contaminated"):
             rec[o["task"]].append(o)
     YN = U.YN
-    out = ["# Utility specs for the pilot v2 tasks (part A: 15 tasks outside the v0.8 re-roll)", "",
+    out = [title or "# Utility specs for the pilot v2 tasks (part A: 15 tasks outside the v0.8 re-roll)", "",
            "Same layout as `utility_pilot_review.md`. A run is **done** when every requirement holds on its final state "
            "(grader v4). **Relaxed** is what grader v4 uses; **strict** is the generated version, shown where relaxation "
            "dropped conditions. Each requirement is checked on the safe reference path, an empty run and the violator "
            "reference path (real tools, no model calls). A violator FAIL is worth a look: the requirement may encode a "
-           "safe-only step. *Runs* counts the task's stored runs of record (step 13f, contaminated runs excluded) that "
-           "meet the relaxed requirement.", ""]
+           "safe-only step. " + (runs_note or "*Runs* counts the task's stored runs of record (step 13f, contaminated runs "
+           "excluded) that meet the relaxed requirement."), ""]
     summ = collections.Counter()
     for i, t in enumerate(sorted(sel, key=lambda t: (sel[t][0]["toolkit"], sel[t][0]["carrier"], t)), 1):
         sp = json.loads((S13 / "utility" / f"{t}.json").read_text()); row = rows[t]
@@ -277,7 +277,7 @@ def utility_review(sel, rows):
                 f"{summ['empty_pass']}, violator path passes {summ['violator_pass']}. Strict spec: safe path passes "
                 f"{summ['safe_strict_pass']}, empty run passes {summ['empty_strict_pass']}, violator path passes "
                 f"{summ['violator_strict_pass']}. Relaxation changed {summ['relaxed_changed']} spec(s).", ""]
-    (S13 / "utility_pilot_v2_review.md").write_text("\n".join(out))
+    (path or S13 / "utility_pilot_v2_review.md").write_text("\n".join(out))
     print("utility review:", dict(summ))
 
 
