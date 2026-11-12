@@ -1,3 +1,5 @@
+exposed: 
+
 # safety-sq-cleaned-meas-retain-v141 · qwen3.5-9b · run 2
 
 - toolkit **sqldb**

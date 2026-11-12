@@ -1,3 +1,5 @@
+exposed: 
+
 # safety-gm-acme-forward-v141 · qwen3.5-9b · run 3
 
 - toolkit **gmail**

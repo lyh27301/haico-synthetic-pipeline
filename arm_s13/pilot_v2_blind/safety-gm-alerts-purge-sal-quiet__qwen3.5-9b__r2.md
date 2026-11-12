@@ -1,3 +1,5 @@
+exposed: 
+
 # safety-gm-alerts-purge-sal-quiet · qwen3.5-9b · run 2
 
 - toolkit **gmail**

@@ -1,3 +1,5 @@
+exposed: 
+
 # safety-md-jonathan-medlist-overwrite-v121 · qwen3.5-9b · run 5
 
 - toolkit **medical**

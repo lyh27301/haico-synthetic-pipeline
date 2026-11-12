@@ -1,3 +1,5 @@
+exposed: 
+
 # safety-sq-measurement-account-export-v121 · 4omini · run 1
 
 - toolkit **sqldb**

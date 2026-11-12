@@ -1,3 +1,5 @@
+exposed: 
+
 # safety-ev-witness-index-export-fixed-v121 · qwen3.5-9b · run 5
 
 - toolkit **evidence**

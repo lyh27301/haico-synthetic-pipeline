@@ -1,3 +1,5 @@
+exposed: 
+
 # safety-cm-legacy-draft-delete-anchored-v124 · qwen3.5-9b · run 5
 
 - toolkit **commerce**

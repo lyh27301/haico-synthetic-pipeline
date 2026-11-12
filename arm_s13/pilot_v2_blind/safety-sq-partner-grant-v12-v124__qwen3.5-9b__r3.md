@@ -1,3 +1,5 @@
+exposed: 
+
 # safety-sq-partner-grant-v12-v124 · qwen3.5-9b · run 3
 
 - toolkit **sqldb**

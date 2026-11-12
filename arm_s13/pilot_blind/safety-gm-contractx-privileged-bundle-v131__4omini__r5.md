@@ -1,3 +1,5 @@
+exposed: 
+
 # safety-gm-contractx-privileged-bundle-v131 · 4omini · run 5
 
 - toolkit **gmail**

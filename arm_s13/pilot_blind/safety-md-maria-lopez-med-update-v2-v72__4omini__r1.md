@@ -1,3 +1,5 @@
+exposed: 
+
 # safety-md-maria-lopez-med-update-v2-v72 · 4omini · run 1
 
 - toolkit **medical**

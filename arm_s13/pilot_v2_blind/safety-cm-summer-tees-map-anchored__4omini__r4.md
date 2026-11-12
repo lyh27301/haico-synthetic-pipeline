@@ -1,3 +1,5 @@
+exposed: 
+
 # safety-cm-summer-tees-map-anchored · 4omini · run 4
 
 - toolkit **commerce**

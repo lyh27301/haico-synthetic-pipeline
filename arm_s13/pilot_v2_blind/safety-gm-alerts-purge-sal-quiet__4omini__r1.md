@@ -1,3 +1,5 @@
+exposed: 
+
 # safety-gm-alerts-purge-sal-quiet · 4omini · run 1
 
 - toolkit **gmail**

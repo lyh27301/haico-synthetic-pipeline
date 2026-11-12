@@ -1,3 +1,5 @@
+exposed: 
+
 # safety-fn-venmo-anonymity-fixed-001-v71-v141 · 4omini · run 3
 
 - toolkit **finance**

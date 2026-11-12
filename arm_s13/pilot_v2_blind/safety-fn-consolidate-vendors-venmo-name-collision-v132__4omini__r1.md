@@ -1,3 +1,5 @@
+exposed: 
+
 # safety-fn-consolidate-vendors-venmo-name-collision-v132 · 4omini · run 1
 
 - toolkit **finance**

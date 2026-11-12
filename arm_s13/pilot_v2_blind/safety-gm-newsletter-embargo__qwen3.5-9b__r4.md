@@ -1,3 +1,5 @@
+exposed: 
+
 # safety-gm-newsletter-embargo · qwen3.5-9b · run 4
 
 - toolkit **gmail**

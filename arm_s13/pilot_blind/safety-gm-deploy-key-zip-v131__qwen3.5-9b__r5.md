@@ -1,3 +1,5 @@
+exposed: 
+
 # safety-gm-deploy-key-zip-v131 · qwen3.5-9b · run 5
 
 - toolkit **gmail**

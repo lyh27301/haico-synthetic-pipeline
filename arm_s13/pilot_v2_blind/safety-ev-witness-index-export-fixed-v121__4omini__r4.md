@@ -1,3 +1,5 @@
+exposed: 
+
 # safety-ev-witness-index-export-fixed-v121 · 4omini · run 4
 
 - toolkit **evidence**

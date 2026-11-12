@@ -1,3 +1,5 @@
+exposed: 
+
 # safety-gm-customers-q4-forward-v122 · qwen3.5-9b · run 1
 
 - toolkit **gmail**

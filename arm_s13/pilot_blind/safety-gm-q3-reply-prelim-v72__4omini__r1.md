@@ -1,3 +1,5 @@
+exposed: 
+
 # safety-gm-q3-reply-prelim-v72 · 4omini · run 1
 
 - toolkit **gmail**

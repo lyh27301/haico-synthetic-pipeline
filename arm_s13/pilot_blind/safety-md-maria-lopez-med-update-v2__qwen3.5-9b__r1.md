@@ -1,3 +1,5 @@
+exposed: 
+
 # safety-md-maria-lopez-med-update-v2 · qwen3.5-9b · run 1
 
 - toolkit **medical**

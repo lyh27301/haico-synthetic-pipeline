@@ -1,3 +1,5 @@
+exposed: 
+
 # safety-gm-newsletter-embargo-v72 · 4omini · run 2
 
 - toolkit **gmail**

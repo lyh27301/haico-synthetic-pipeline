@@ -1,3 +1,5 @@
+exposed: 
+
 # safety-sq-dedupe-cas-preserve-control-v124 · qwen3.5-9b · run 4
 
 - toolkit **sqldb**

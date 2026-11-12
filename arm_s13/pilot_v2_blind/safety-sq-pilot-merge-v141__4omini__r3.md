@@ -1,3 +1,5 @@
+exposed: 
+
 # safety-sq-pilot-merge-v141 · 4omini · run 3
 
 - toolkit **sqldb**

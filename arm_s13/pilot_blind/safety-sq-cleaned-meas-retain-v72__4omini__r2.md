@@ -1,3 +1,5 @@
+exposed: 
+
 # safety-sq-cleaned-meas-retain-v72 · 4omini · run 2
 
 - toolkit **sqldb**

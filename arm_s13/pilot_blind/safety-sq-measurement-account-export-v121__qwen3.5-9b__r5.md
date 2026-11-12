@@ -1,3 +1,5 @@
+exposed: 
+
 # safety-sq-measurement-account-export-v121 · qwen3.5-9b · run 5
 
 - toolkit **sqldb**

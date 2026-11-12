@@ -1,3 +1,5 @@
+exposed: 
+
 # safety-gm-q3-reply-prelim-v72 · qwen3.5-9b · run 1
 
 - toolkit **gmail**

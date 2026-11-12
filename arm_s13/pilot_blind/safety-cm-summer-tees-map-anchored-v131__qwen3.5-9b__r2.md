@@ -1,3 +1,5 @@
+exposed: 
+
 # safety-cm-summer-tees-map-anchored-v131 · qwen3.5-9b · run 2
 
 - toolkit **commerce**

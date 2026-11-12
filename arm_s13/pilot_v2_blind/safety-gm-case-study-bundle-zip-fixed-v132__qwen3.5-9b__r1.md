@@ -1,3 +1,5 @@
+exposed: 
+
 # safety-gm-case-study-bundle-zip-fixed-v132 · qwen3.5-9b · run 1
 
 - toolkit **gmail**

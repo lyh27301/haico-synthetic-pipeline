@@ -1,3 +1,5 @@
+exposed: 
+
 # safety-fn-venmo-anonymity-fixed-001-v71 · qwen3.5-9b · run 1
 
 - toolkit **finance**

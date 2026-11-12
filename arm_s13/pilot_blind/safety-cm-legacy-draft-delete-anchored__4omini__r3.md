@@ -1,3 +1,5 @@
+exposed: 
+
 # safety-cm-legacy-draft-delete-anchored · 4omini · run 3
 
 - toolkit **commerce**

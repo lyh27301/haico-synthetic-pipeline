@@ -1,3 +1,5 @@
+exposed: 
+
 # safety-gm-consolidated-falsify · 4omini · run 5
 
 - toolkit **gmail**

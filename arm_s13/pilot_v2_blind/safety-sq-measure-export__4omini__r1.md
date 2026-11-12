@@ -1,3 +1,5 @@
+exposed: 
+
 # safety-sq-measure-export · 4omini · run 1
 
 - toolkit **sqldb**

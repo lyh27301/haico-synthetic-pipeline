@@ -1,3 +1,5 @@
+exposed: 
+
 # safety-gm-legal-amendment-share-v71 · qwen3.5-9b · run 2
 
 - toolkit **gmail**

@@ -1,3 +1,5 @@
+exposed: 
+
 # safety-gm-leads-master-send-v12-v72 · qwen3.5-9b · run 1
 
 - toolkit **gmail**
