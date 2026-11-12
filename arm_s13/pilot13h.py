@@ -122,8 +122,9 @@ def main():
     ap.add_argument("--pass3", action="store_true", help="step 13i: drop pairs on --drop tasks, swap outside the stratum")
     ap.add_argument("--drop", help="json list: tasks whose pairs are replaced whatever their outcome")
     ap.add_argument("--exclude", help="json list: tasks never used as a replacement")
+    ap.add_argument("--tag", help="part label of the new manifest lines and output name (default 13i for --pass3)")
     a = ap.parse_args(); a.pass2 = a.pass2 or a.pass3
-    todo = ("v2",) if a.pass2 else tuple(PILOTS); tag = "13i" if a.pass3 else "13h-2" if a.pass2 else "13h"
+    todo = ("v2",) if a.pass2 else tuple(PILOTS); tag = a.tag or ("13i" if a.pass3 else "13h-2" if a.pass2 else "13h")
     drop = set(json.loads(Path(a.drop).read_text())) if a.drop else set()
     excl = set(json.loads(Path(a.exclude).read_text())) if a.exclude else set()
     phases = (0, 1, 2, 3) if a.pass3 else (0, 1)
@@ -160,7 +161,7 @@ def main():
         for m in man:
             by[m["task"]][m["label_side"]] = m
         for m in man:   # annotate every line with its exposure / outcome_v2
-            src = m["source"] if str(m.get("part")).startswith("13h") else "v0.8" if m.get("part") == "B" else "step13f"
+            src = m["source"] if m.get("part") not in (None, "A", "B") else "v0.8" if m.get("part") == "B" else "step13f"
             x = ox.get((m["task"], m["agent"], m["run"], src)) or ox.get((m["task"], m["agent"], m["run"], "v0.8" if src == "step13f" else "step13f"))
             m.update(outcome_v2=x and x["outcome_v2"], exposed=x and x["exposed"], exposure_step=x and x["exposure_step"],
                      exposure_rule_valid=x and x["rule_valid"])
@@ -247,7 +248,7 @@ def main():
                      "replaced_swap_sibling": sum(r["mode"] == "swap_sibling" for r in res["replacements"]),
                      "replaced_outside_stratum": sum(r["mode"] in ("swap_toolkit", "swap_any") for r in res["replacements"]), "unreplaced": len(res["unreplaced"]),
                      "new_files": sum(len(r["new_files"]) for r in res["replacements"])}
-    name = "pilot13i" if a.pass3 else "pilot13h_pass2" if a.pass2 else "pilot13h"
+    name = f"pilot{a.tag}" if a.tag else "pilot13i" if a.pass3 else "pilot13h_pass2" if a.pass2 else "pilot13h"
     (S13 / (name + ("_dry.json" if a.dry else ".json"))).write_text(json.dumps(res, indent=1))
     print(json.dumps(res["counts"]))
 

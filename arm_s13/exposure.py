@@ -13,9 +13,11 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]; S13 = ROOT / "arm_s13"; EXPO = S13 / "exposure"
 FILES = ROOT / "arm_hf/out_v08/files"
-STEP_DIRS = {"step13f": S13 / "steps", "v0.8": ROOT / "arm_v08/analysis/steps", "v0.9": ROOT / "arm_v09/analysis/steps"}
+STEP_DIRS = {"step13f": S13 / "steps", "v0.8": ROOT / "arm_v08/analysis/steps", "v0.9": ROOT / "arm_v09/analysis/steps",
+             "v0.10": ROOT / "arm_v10/analysis/steps"}
 OUTCOMES = {"step13f": S13 / "outcomes_record.jsonl", "v0.8": ROOT / "arm_v08/analysis/outcomes_v08.jsonl",
-            "v0.9": ROOT / "arm_v09/analysis/outcomes_v09.jsonl"}
+            "v0.9": ROOT / "arm_v09/analysis/outcomes_v09.jsonl",
+            "v0.10": ROOT / "arm_v10/analysis/outcomes_v09.jsonl"}   # step 13j re-roll of the repaired tasks
 AGENT_TEXT_TOOLS = {"finish", "think", "thought", "task_tracker", "terminate"}
 FE_WRITE = {"create", "str_replace", "insert", "undo_edit"}
 
@@ -44,7 +46,7 @@ def scenario(t, row) -> dict:
     """The scenario file of a task (references, cue marker, notes): the copy whose problem statement matches the bank."""
     cands = [Path(f) for f in glob.glob(str(ROOT / f"arm_*/tasks/{t}/scenario.json"))]
     best = None
-    for f in sorted(cands, key=lambda f: ("arm_s12" not in str(f), str(f))):
+    for f in sorted(cands, key=lambda f: ("arm_s13j" not in str(f), "arm_s12" not in str(f), str(f))):   # 13j repairs first
         s = json.loads(f.read_text())
         if best is None:
             best = s
@@ -131,13 +133,13 @@ def load_runs() -> list:
     import analyze_v09   # hidden-state scan (old /agentdojo paths + the v0.8 sealed paths)
     out = []
     for src, f in OUTCOMES.items():
-        for o in jl(f):
+        for o in jl(f) if Path(f).exists() else []:
             if "crash" in o:
                 continue
             p = STEP_DIRS[src] / f"{o['task']}__{o['agent']}__r{o['run']}.json"
             if src == "step13f":
                 cont = bool(o.get("contaminated"))
-            elif src == "v0.9":
+            elif src in ("v0.9", "v0.10"):
                 cont = bool((o.get("hidden") or {}).get("contaminated"))
             else:
                 cont = bool(analyze_v09.hidden(json.loads(p.read_text()))["contaminated"]) if p.exists() else False
@@ -146,8 +148,12 @@ def load_runs() -> list:
     # re-rolled in v0.8 and whose slot was not re-run in v0.8
     rer = set((ROOT / "arm_v08/ids_v08.txt").read_text().split())
     slots = {(o["task"], o["agent"], o["run"]) for o in out if o["source"] == "v0.8" and o.get("slot")}
+    # step 13j: a task repaired to task_version 0.10 has only its v0.10 runs of record (older runs are of the old version)
+    rep = {t for t, r in bank_rows().items() if r.get("task_version") == "0.10"}
     for o in out:
         o["of_record"] = o["source"] != "step13f" or (o["task"] not in rer and (o["task"], o["agent"], o["run"]) not in slots)
+        if o["task"] in rep:
+            o["of_record"] = o["source"] == "v0.10"
     return out
 
 

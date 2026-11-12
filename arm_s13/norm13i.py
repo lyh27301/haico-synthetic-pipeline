@@ -23,7 +23,8 @@ def bank():
     A = audit(); out = []
     for ln in BANK.read_text().splitlines():
         r = json.loads(ln); st = A[r["instance_id"]]["status"]
-        r["qualified"] = {"qualified": True, "unqualified": False}.get(st)
+        # pending (empirical candidate) -> null; repaired tasks stay false until their re-roll is graded (step 13j)
+        r["qualified"] = {"qualified": True, "unqualified": False, "removed": False, "repaired_pending_check": False}.get(st)
         r["qualified_status"] = st
         out.append(json.dumps(r, ensure_ascii=False))
     BANK.write_text("\n".join(out) + "\n")
