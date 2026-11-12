@@ -119,7 +119,14 @@ def render(pilot, t, r, side, m, rows, ctx, X, xs8):
 def main():
     ap = argparse.ArgumentParser(); ap.add_argument("--dry", action="store_true")
     ap.add_argument("--pass2", action="store_true"); ap.add_argument("--mech-cap", type=int, default=1)
-    a = ap.parse_args(); todo = ("v2",) if a.pass2 else tuple(PILOTS); tag = "13h-2" if a.pass2 else "13h"
+    ap.add_argument("--pass3", action="store_true", help="step 13i: drop pairs on --drop tasks, swap outside the stratum")
+    ap.add_argument("--drop", help="json list: tasks whose pairs are replaced whatever their outcome")
+    ap.add_argument("--exclude", help="json list: tasks never used as a replacement")
+    a = ap.parse_args(); a.pass2 = a.pass2 or a.pass3
+    todo = ("v2",) if a.pass2 else tuple(PILOTS); tag = "13i" if a.pass3 else "13h-2" if a.pass2 else "13h"
+    drop = set(json.loads(Path(a.drop).read_text())) if a.drop else set()
+    excl = set(json.loads(Path(a.exclude).read_text())) if a.exclude else set()
+    phases = (0, 1, 2, 3) if a.pass3 else (0, 1)
     ox = {(o["task"], o["agent"], o["run"], o["source"]): o for o in jl(S13 / "outcomes_v2_13h.jsonl")}
     res = {"exposed_line": {}, "annotated_untouched": [], "pairs_flagged": [], "replacements": [], "unreplaced": [],
            "safe_side_rule_excluded": []}
@@ -159,33 +166,38 @@ def main():
                      exposure_rule_valid=x and x["rule_valid"])
         # phase 0: same task, or a swap to a sibling variant of the same mechanic; phase 1: any task in the stratum
         # (so a pair with a sibling is not left without one because another pair took it first)
-        for phase, (t, pair) in [(ph, x) for ph in (0, 1) for x in sorted(by.items())]:
+        # pass 3 adds phase 2: same toolkit, any carrier; phase 3: any task
+        for phase, (t, pair) in [(ph, x) for ph in phases for x in sorted(by.items())]:
             s, u = pair.get("safe"), pair.get("unsafe")
             if not s or not u or s.get("superseded_by"):
                 continue
-            if s["exposure_rule_valid"] is False:
+            dropped = t in drop
+            if s["exposure_rule_valid"] is False and not dropped:
                 if phase == 0:
                     res["safe_side_rule_excluded"].append(f"{p}: {t}__{s['agent']}__r{s['run']}")
                 continue
-            if s["outcome_v2"] == "honest_success":
+            if s["outcome_v2"] == "honest_success" and not dropped:
                 continue
             old = f"{t}__{s['agent']}__r{s['run']}"
             if phase == 0:
                 res["pairs_flagged"].append({"pilot": p, "task": t, "safe": old, "safe_outcome_v2": s["outcome_v2"],
+                                             "reason": "task dropped (step 13i)" if dropped else "safe side not an exposed honest success",
                                              "unsafe": f"{t}__{u['agent']}__r{u['run']}", "stratum": [s["toolkit"], s["carrier"]]})
             ok = lambda r: r["outcome_v2"] == "honest_success" and r["exposed"] and r["n_steps"] <= A.MAX_STEPS \
                 and (r["task"], r["agent"], r["run"]) not in used_runs
-            cands = sorted((r for r in pool.get(t, []) if ok(r)),
+            cands = sorted((r for r in pool.get(t, []) if ok(r) and not dropped),
                            key=lambda r: (r["agent"] != u["agent"], abs(r["n_steps"] - u["n_steps"]), r["agent"], r["run"]))
             if cands:
                 r = cands[0]; side_lines = [("safe", r)]; mode = "same_task"
             else:   # swap the task within the stratum
                 mode = "swap"; best = None
                 for t2, rs in sorted(pool.items()):
-                    if t2 in used_tasks or len(mech_tasks[mech(t2, var)]) >= a.mech_cap or not rs or \
+                    if t2 in used_tasks or t2 in excl or len(mech_tasks[mech(t2, var)]) >= a.mech_cap or not rs or \
                             (phase == 0 and mech(t2, var) != mech(t, var)):
                         continue
-                    if (rs[0]["toolkit"], car.get(t2, rs[0].get("carrier"))) != (s["toolkit"], s["carrier"]):
+                    if phase <= 1 and (rs[0]["toolkit"], car.get(t2, rs[0].get("carrier"))) != (s["toolkit"], s["carrier"]):
+                        continue
+                    if phase == 2 and rs[0]["toolkit"] != s["toolkit"]:
                         continue
                     hs = [r for r in rs if ok(r)]
                     un = [r for r in rs if r["unsafe"] is True and r["n_steps"] <= A.MAX_STEPS
@@ -196,7 +208,7 @@ def main():
                     if prs and (best is None or (prs[0][0]["agent"] != prs[0][1]["agent"], prs[0][0]["n_steps"] + prs[0][1]["n_steps"], t2)
                                 < (best[0]["agent"] != best[1]["agent"], best[0]["n_steps"] + best[1]["n_steps"], best[0]["task"])):
                         best = prs[0]
-                if not best and phase == 0:
+                if not best and phase < phases[-1]:
                     continue
                 if not best:
                     res["unreplaced"].append({"pilot": p, "task": t, "safe": old, "why": "no exposed honest success on "
@@ -204,7 +216,7 @@ def main():
                                               f"whose mechanic has fewer than {a.mech_cap} tasks in the pilots"})
                     continue
                 side_lines = [("unsafe", best[0]), ("safe", best[1])]
-                mode = "swap_sibling" if phase == 0 else "swap"
+                mode = ["swap_sibling", "swap", "swap_toolkit", "swap_any"][phase]
             files = []
             for side, r in side_lines:
                 r = r | {"carrier": car.get(r["task"], r.get("carrier"))}
@@ -232,9 +244,10 @@ def main():
     res["counts"] = {"blind_files": len(res["exposed_line"]), "exposed_line": dict(collections.Counter(res["exposed_line"].values())),
                      "pairs_flagged": len(res["pairs_flagged"]), "replaced_same_task": sum(r["mode"] == "same_task" for r in res["replacements"]),
                      "replaced_swap": sum(r["mode"] == "swap" for r in res["replacements"]),
-                     "replaced_swap_sibling": sum(r["mode"] == "swap_sibling" for r in res["replacements"]), "unreplaced": len(res["unreplaced"]),
+                     "replaced_swap_sibling": sum(r["mode"] == "swap_sibling" for r in res["replacements"]),
+                     "replaced_outside_stratum": sum(r["mode"] in ("swap_toolkit", "swap_any") for r in res["replacements"]), "unreplaced": len(res["unreplaced"]),
                      "new_files": sum(len(r["new_files"]) for r in res["replacements"])}
-    name = "pilot13h_pass2" if a.pass2 else "pilot13h"
+    name = "pilot13i" if a.pass3 else "pilot13h_pass2" if a.pass2 else "pilot13h"
     (S13 / (name + ("_dry.json" if a.dry else ".json"))).write_text(json.dumps(res, indent=1))
     print(json.dumps(res["counts"]))
 
