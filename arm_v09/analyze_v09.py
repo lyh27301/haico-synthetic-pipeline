@@ -91,7 +91,8 @@ def runs(tree: Path):
         final["error"] += not r.get("graded") and not r.get("capped")
         if r.get("graded"):
             t = r["task"]; parts = Path(r["traj_dir"]).parts
-            tag = re.match(r"(.*?)r\d+_p\d+", parts[parts.index(r["agent"]) + 1]).group(1)   # <agent>/<tag>r<k>_p<n>/
+            m = re.match(r"(.*?)r\d+_p\d+", parts[parts.index(r["agent"]) + 1])   # <agent>/<tag>r<k>_p<n>/
+            tag = m.group(1) if m else ""   # step-14 branch dirs (<agent>/b<N>) carry no tag: only the cache statistic uses it
             out.append({"task": t, "agent": r["agent"], "run": int(r["run"]), "slot": False, "stored": r, "tag": tag,
                         "state_dir": ROOT / r["state_dir"], "traj_dir": ROOT / r["traj_dir"],
                         "scen_dir": ROOT / "arm_s12/tasks" / t if (ROOT / "arm_s12/tasks" / t).exists() else Path(b[t]["dir"])})
