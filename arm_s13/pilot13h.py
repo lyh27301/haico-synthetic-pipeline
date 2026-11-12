@@ -10,7 +10,10 @@ arm_s13/pilot_v2_blind + pilot_v2_manifest.jsonl). Reads arm_s13/outcomes_v2_13h
          success and an unsafe run (same agent first), whose mechanic is in neither pilot: a new pair;
      no existing file is overwritten or deleted; old manifest lines are kept and annotated (outcome_v2, exposed,
      superseded_by), new lines are appended (part "13h", replaces).
-  .venv/bin/python arm_s13/pilot13h.py [--dry]   ->  arm_s13/pilot13h.json"""
+  Second pass (--pass2): pilot v2 only, after the exposure rules were simplified (safe side only, self-describing
+  names). The exposed line is not touched again; pairs already superseded are skipped; a mechanic may appear in up to
+  --mech-cap tasks across both pilots (counted over every task in either manifest, superseded ones included).
+  .venv/bin/python arm_s13/pilot13h.py [--dry] [--pass2 --mech-cap 2]   ->  arm_s13/pilot13h.json / pilot13h_pass2.json"""
 import argparse, collections, json, re, sys
 from pathlib import Path
 
@@ -114,25 +117,27 @@ def render(pilot, t, r, side, m, rows, ctx, X, xs8):
 
 
 def main():
-    ap = argparse.ArgumentParser(); ap.add_argument("--dry", action="store_true"); a = ap.parse_args()
+    ap = argparse.ArgumentParser(); ap.add_argument("--dry", action="store_true")
+    ap.add_argument("--pass2", action="store_true"); ap.add_argument("--mech-cap", type=int, default=1)
+    a = ap.parse_args(); todo = ("v2",) if a.pass2 else tuple(PILOTS); tag = "13h-2" if a.pass2 else "13h"
     ox = {(o["task"], o["agent"], o["run"], o["source"]): o for o in jl(S13 / "outcomes_v2_13h.jsonl")}
     res = {"exposed_line": {}, "annotated_untouched": [], "pairs_flagged": [], "replacements": [], "unreplaced": [],
            "safe_side_rule_excluded": []}
     # 1. exposed line
     for p, (blind, _, _) in PILOTS.items():
-        for f in sorted(blind.glob("*.md")):
+        for f in sorted(blind.glob("*.md")) if not a.pass2 else []:
             st = add_exposed(f, a.dry)
             res["exposed_line"][f"{p}/{f.name}"] = st
             if st == "annotated":
                 res["annotated_untouched"].append(f"{blind.name}/{f.name}")
     # 2. pairs
     pool, var = pools()
-    used_runs = set(); used_mech = collections.defaultdict(set); used_tasks = set()
+    used_runs = set(); used_tasks = set(); mech_tasks = collections.defaultdict(set)
     mans = {p: jl(PILOTS[p][2]) for p in PILOTS}
     for p, man in mans.items():
         for m in man:
             used_runs.add((m["task"], m["agent"], m["run"])); used_tasks.add(m["task"])
-            used_mech["all"].add(mech(m["task"], var))
+            mech_tasks[mech(m["task"], var)].add(m["task"])
     xs, rows = R.bank_runs(); X = {(x["task"], x["agent"], x["run"]): x for x in xs}
     rows |= {json.loads(l)["instance_id"]: json.loads(l) for l in (V8 / "bank_v08.jsonl").read_text().splitlines()}
     xs8 = {}
@@ -142,26 +147,32 @@ def main():
     car = {o["task"]: o["carrier"] for o in jl(S13 / "outcomes_record.jsonl")}
     new_lines = collections.defaultdict(list)
     for p, man in mans.items():
+        if p not in todo:
+            continue
         by = collections.defaultdict(dict)
         for m in man:
             by[m["task"]][m["label_side"]] = m
         for m in man:   # annotate every line with its exposure / outcome_v2
-            src = "v0.8" if m.get("part") == "B" else "step13f"
+            src = m["source"] if str(m.get("part")).startswith("13h") else "v0.8" if m.get("part") == "B" else "step13f"
             x = ox.get((m["task"], m["agent"], m["run"], src)) or ox.get((m["task"], m["agent"], m["run"], "v0.8" if src == "step13f" else "step13f"))
             m.update(outcome_v2=x and x["outcome_v2"], exposed=x and x["exposed"], exposure_step=x and x["exposure_step"],
                      exposure_rule_valid=x and x["rule_valid"])
-        for t, pair in sorted(by.items()):
+        # phase 0: same task, or a swap to a sibling variant of the same mechanic; phase 1: any task in the stratum
+        # (so a pair with a sibling is not left without one because another pair took it first)
+        for phase, (t, pair) in [(ph, x) for ph in (0, 1) for x in sorted(by.items())]:
             s, u = pair.get("safe"), pair.get("unsafe")
-            if not s or not u:
+            if not s or not u or s.get("superseded_by"):
                 continue
             if s["exposure_rule_valid"] is False:
-                res["safe_side_rule_excluded"].append(f"{p}: {t}__{s['agent']}__r{s['run']}")
+                if phase == 0:
+                    res["safe_side_rule_excluded"].append(f"{p}: {t}__{s['agent']}__r{s['run']}")
                 continue
             if s["outcome_v2"] == "honest_success":
                 continue
             old = f"{t}__{s['agent']}__r{s['run']}"
-            res["pairs_flagged"].append({"pilot": p, "task": t, "safe": old, "safe_outcome_v2": s["outcome_v2"],
-                                         "unsafe": f"{t}__{u['agent']}__r{u['run']}", "stratum": [s["toolkit"], s["carrier"]]})
+            if phase == 0:
+                res["pairs_flagged"].append({"pilot": p, "task": t, "safe": old, "safe_outcome_v2": s["outcome_v2"],
+                                             "unsafe": f"{t}__{u['agent']}__r{u['run']}", "stratum": [s["toolkit"], s["carrier"]]})
             ok = lambda r: r["outcome_v2"] == "honest_success" and r["exposed"] and r["n_steps"] <= A.MAX_STEPS \
                 and (r["task"], r["agent"], r["run"]) not in used_runs
             cands = sorted((r for r in pool.get(t, []) if ok(r)),
@@ -171,7 +182,8 @@ def main():
             else:   # swap the task within the stratum
                 mode = "swap"; best = None
                 for t2, rs in sorted(pool.items()):
-                    if t2 in used_tasks or mech(t2, var) in used_mech["all"] or not rs:
+                    if t2 in used_tasks or len(mech_tasks[mech(t2, var)]) >= a.mech_cap or not rs or \
+                            (phase == 0 and mech(t2, var) != mech(t, var)):
                         continue
                     if (rs[0]["toolkit"], car.get(t2, rs[0].get("carrier"))) != (s["toolkit"], s["carrier"]):
                         continue
@@ -184,15 +196,19 @@ def main():
                     if prs and (best is None or (prs[0][0]["agent"] != prs[0][1]["agent"], prs[0][0]["n_steps"] + prs[0][1]["n_steps"], t2)
                                 < (best[0]["agent"] != best[1]["agent"], best[0]["n_steps"] + best[1]["n_steps"], best[0]["task"])):
                         best = prs[0]
+                if not best and phase == 0:
+                    continue
                 if not best:
                     res["unreplaced"].append({"pilot": p, "task": t, "safe": old, "why": "no exposed honest success on "
-                                              "this task and no task in the stratum with an exposed honest success"})
+                                              "this task and no task in the stratum with an exposed honest success "
+                                              f"whose mechanic has fewer than {a.mech_cap} tasks in the pilots"})
                     continue
                 side_lines = [("unsafe", best[0]), ("safe", best[1])]
+                mode = "swap_sibling" if phase == 0 else "swap"
             files = []
             for side, r in side_lines:
                 r = r | {"carrier": car.get(r["task"], r.get("carrier"))}
-                m = {"task": r["task"], "agent": r["agent"], "run": r["run"], "part": "13h", "label_side": side,
+                m = {"task": r["task"], "agent": r["agent"], "run": r["run"], "part": tag, "label_side": side,
                      "outcome": r["outcome"], "outcome_v2": r["outcome_v2"], "exposed": r["exposed"],
                      "exposure_step": r["exposure_step"], "exposure_rule_valid": True, "unsafe": r["unsafe"],
                      "utility": r["utility"], "toolkit": r["toolkit"], "carrier": r["carrier"],
@@ -203,20 +219,23 @@ def main():
                 if not a.dry:
                     render(p, r["task"], r, side, m, rows, ctx, X, xs8)
                 used_runs.add((r["task"], r["agent"], r["run"])); used_tasks.add(r["task"])
-                used_mech["all"].add(mech(r["task"], var))
+                mech_tasks[mech(r["task"], var)].add(r["task"])
                 new_lines[p].append(m); files.append(f"{r['task']}__{r['agent']}__r{r['run']}")
             s["superseded_by"] = files[-1]
-            if mode == "swap":
+            if mode.startswith("swap"):
                 u["superseded_by"] = files[0]
             res["replacements"].append({"pilot": p, "task": t, "old_safe": old, "mode": mode, "new_files": files})
     if not a.dry:
         for p, man in mans.items():
-            PILOTS[p][2].write_text("".join(json.dumps(m) + "\n" for m in man + new_lines[p]))
+            if p in todo:
+                PILOTS[p][2].write_text("".join(json.dumps(m) + "\n" for m in man + new_lines[p]))
     res["counts"] = {"blind_files": len(res["exposed_line"]), "exposed_line": dict(collections.Counter(res["exposed_line"].values())),
                      "pairs_flagged": len(res["pairs_flagged"]), "replaced_same_task": sum(r["mode"] == "same_task" for r in res["replacements"]),
-                     "replaced_swap": sum(r["mode"] == "swap" for r in res["replacements"]), "unreplaced": len(res["unreplaced"]),
+                     "replaced_swap": sum(r["mode"] == "swap" for r in res["replacements"]),
+                     "replaced_swap_sibling": sum(r["mode"] == "swap_sibling" for r in res["replacements"]), "unreplaced": len(res["unreplaced"]),
                      "new_files": sum(len(r["new_files"]) for r in res["replacements"])}
-    (S13 / ("pilot13h_dry.json" if a.dry else "pilot13h.json")).write_text(json.dumps(res, indent=1))
+    name = "pilot13h_pass2" if a.pass2 else "pilot13h"
+    (S13 / (name + ("_dry.json" if a.dry else ".json"))).write_text(json.dumps(res, indent=1))
     print(json.dumps(res["counts"]))
 
 
