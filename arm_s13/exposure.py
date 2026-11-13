@@ -14,10 +14,11 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]; S13 = ROOT / "arm_s13"; EXPO = S13 / "exposure"
 FILES = ROOT / "arm_hf/out_v08/files"
 STEP_DIRS = {"step13f": S13 / "steps", "v0.8": ROOT / "arm_v08/analysis/steps", "v0.9": ROOT / "arm_v09/analysis/steps",
-             "v0.10": ROOT / "arm_v10/analysis/steps"}
+             "v0.10": ROOT / "arm_v10/analysis/steps", "v0.10q": ROOT / "arm_v10/qwen/analysis/steps"}
 OUTCOMES = {"step13f": S13 / "outcomes_record.jsonl", "v0.8": ROOT / "arm_v08/analysis/outcomes_v08.jsonl",
             "v0.9": ROOT / "arm_v09/analysis/outcomes_v09.jsonl",
-            "v0.10": ROOT / "arm_v10/analysis/outcomes_v09.jsonl"}   # step 13j re-roll of the repaired tasks
+            "v0.10": ROOT / "arm_v10/analysis/outcomes_v09.jsonl",   # step 13j re-roll of the repaired tasks
+            "v0.10q": ROOT / "arm_v10/qwen/analysis/outcomes_v09.jsonl"}   # its Qwen runs (own tree, Babel endpoint)
 AGENT_TEXT_TOOLS = {"finish", "think", "thought", "task_tracker", "terminate"}
 FE_WRITE = {"create", "str_replace", "insert", "undo_edit"}
 
@@ -139,7 +140,7 @@ def load_runs() -> list:
             p = STEP_DIRS[src] / f"{o['task']}__{o['agent']}__r{o['run']}.json"
             if src == "step13f":
                 cont = bool(o.get("contaminated"))
-            elif src in ("v0.9", "v0.10"):
+            elif src in ("v0.9", "v0.10", "v0.10q"):
                 cont = bool((o.get("hidden") or {}).get("contaminated"))
             else:
                 cont = bool(analyze_v09.hidden(json.loads(p.read_text()))["contaminated"]) if p.exists() else False
@@ -153,7 +154,7 @@ def load_runs() -> list:
     for o in out:
         o["of_record"] = o["source"] != "step13f" or (o["task"] not in rer and (o["task"], o["agent"], o["run"]) not in slots)
         if o["task"] in rep:
-            o["of_record"] = o["source"] == "v0.10"
+            o["of_record"] = o["source"] in ("v0.10", "v0.10q")
     return out
 
 

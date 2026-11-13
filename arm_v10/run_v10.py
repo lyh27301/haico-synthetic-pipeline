@@ -21,8 +21,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]; V = ROOT / "arm_v10"; PY = str(ROOT / ".venv/bin/python")
 STATE = V / "run_v10.json"
-CAPS = {"anthropic": 10.0, "openai": 3.0}
-STOP_AT = {"anthropic": 9.40, "openai": 2.80}
+CAPS = {"anthropic": 15.0, "openai": 3.0}   # Anthropic raised from $10 to $15 (user decision, so Sonnet gets all 3 rounds)
+STOP_AT = {"anthropic": 14.40, "openai": 2.80}
 GROUP = {"anthropic": ("haiku", "sonnet"), "openai": ("4omini",)}
 NPC_CALL = 0.001
 T0 = float(os.environ.get("T13J", "0")) or json.loads((V / "t0.json").read_text())["t0"]
@@ -30,7 +30,7 @@ GEN_LOGS = ["arm_s13/utility_usage.jsonl", "arm_s13/exposure_usage.jsonl", "arm_
             "arm_s13/norm_usage.jsonl"]
 NAME = {"4omini": "4omini", "haiku": "haiku5.5", "sonnet": "sonnet5.5"}
 RUNS = {"4omini": 5, "haiku": 5, "sonnet": 3}
-WORKERS = {"4omini": "5", "haiku": "6", "sonnet": "4"}
+WORKERS = {"4omini": "3", "haiku": "3", "sonnet": "3"}   # lowered after ~20 concurrent emulated containers stalled Docker
 
 
 def note(**kw):
@@ -126,6 +126,30 @@ def prov(agent):
     return next(k for k, g in GROUP.items() if agent in g)
 
 
+def attach():
+    """Re-attach the guard to runners already running (after a cap change): same checks, no new runners."""
+    s = json.loads(STATE.read_text()); pids = s["pids"]; capped = list(s.get("capped") or [])
+    alive = lambda p: subprocess.run(["kill", "-0", str(p)], capture_output=True).returncode == 0
+    note(state="running", phase="batch", attached=True, pids=pids)
+    while any(alive(p) for p in pids.values()):
+        sp = spend(); c = counts(V, RUNS)
+        for k, lim in STOP_AT.items():
+            if sp[k] > lim and k not in capped:
+                capped.append(k)
+                (V / f"harness/budget_stop_{k}.json").write_text(json.dumps({"spend": sp, "t": time.time()}))
+                for a, p in pids.items():
+                    if a in GROUP[k] and alive(p):
+                        os.killpg(p, signal.SIGTERM)
+        if c["final"] >= 40 and c["errors"] > 0.05 * c["final"]:
+            for p in pids.values():
+                if alive(p):
+                    os.killpg(p, signal.SIGTERM)
+            note(state="stopped", phase="batch", reason=f"{c['errors']} of {c['final']} errored", counts=c); return
+        note(state="running", phase="batch", spend=sp, counts=c, capped=capped)
+        time.sleep(60)
+    note(state="done", phase="batch", counts=counts(V, RUNS), spend=spend(), capped=capped)
+
+
 def main():
     reason, c = phase("smoke", V / "ids_smoke.txt", {a: 1 for a in RUNS}, V / "smoke")
     expect = len((V / "ids_smoke.txt").read_text().split()) * len(RUNS)
@@ -137,4 +161,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    attach() if "--attach" in sys.argv else main()

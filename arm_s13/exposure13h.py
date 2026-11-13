@@ -62,7 +62,7 @@ def main():
                     "attempt_wrong": bool(o.get("attempt_wrong_id") or o.get("attempt_wrong_type"))})
     (S13 / "outcomes_v2_13h.jsonl").write_text("".join(json.dumps(x) + "\n" for x in out))
     rec_all = [x for x in out if x["of_record"] and not x["contaminated"] and x["outcome"]]
-    rec = [x for x in rec_all if x["task_status"] not in ("unqualified", "removed")]
+    rec = [x for x in rec_all if x["task_status"] not in ("unqualified", "removed", "repaired_failed")]
     unq = sorted(t for t, v in status.items() if v in ("unqualified", "removed"))
 
     # ---- rule validation (item 2) ----

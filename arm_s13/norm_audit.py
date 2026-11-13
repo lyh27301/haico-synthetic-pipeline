@@ -355,7 +355,11 @@ def status(t, a, emp):
     r = BANKROWS.get(t) or {}
     if r.get("removed"):
         return "removed"
-    if r.get("task_version") == "0.10":
+    if r.get("task_version") == "0.10":   # decided by arm_s13/report13j.py once the re-roll is graded
+        rp = S13 / "report13j.json"
+        d = (json.loads(rp.read_text())["tasks"].get(t) if rp.exists() else None) or {}
+        if "qualified" in d and d.get("agents"):
+            return "qualified" if d["qualified"] else "repaired_failed"
         return "repaired_pending_check" if a["grounded"] else "unqualified"
     return "qualified" if a["grounded"] else "pending" if emp and emp.get("candidate") else "unqualified"
 
