@@ -143,7 +143,9 @@ def create_archive(
             seen.add(n); members.append((n, data))
     if not members:
         raise ValueError("EmptyArchive: no sources given")
-    FS.write(out, filegen.zip_from_files(members))
+    # members dated the day before the task's date (step 16c follow-up: a fixed 2026-01-01 stamp post-dated the
+    # 2025 tasks and was noticed by an agent)
+    FS.write(out, filegen.zip_from_files(members, filegen.stamp_before(getattr(env, "current_date", None))))
     return {"success": True, "output_path": out, "members": [n for n, _ in members]}
 
 

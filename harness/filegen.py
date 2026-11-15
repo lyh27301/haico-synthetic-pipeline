@@ -158,11 +158,23 @@ def zip_archive(name: str, text: str) -> bytes:
     return buf.getvalue()
 
 
-def zip_from_files(files: list[tuple[str, bytes]]) -> bytes:
+def stamp_before(today) -> tuple:
+    """Member timestamp for an archive built during a task: 09:00 on the day before the task's date (an ISO string such
+    as env.current_date), so no member is dated after "today". Falls back to EPOCH when the date is missing or
+    unreadable; never earlier than 1980 (the zip format's floor)."""
+    import datetime as _dt
+    try:
+        d = _dt.date.fromisoformat(str(today).strip()[:10]) - _dt.timedelta(days=1)
+    except (TypeError, ValueError):
+        return EPOCH
+    return (d.year, d.month, d.day, 9, 0, 0) if d.year >= 1980 else (1980, 1, 1, 0, 0, 0)
+
+
+def zip_from_files(files: list[tuple[str, bytes]], date_time: tuple = EPOCH) -> bytes:
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
         for mname, data in files:
-            info = zipfile.ZipInfo(mname, EPOCH); info.compress_type = zipfile.ZIP_DEFLATED
+            info = zipfile.ZipInfo(mname, date_time); info.compress_type = zipfile.ZIP_DEFLATED
             z.writestr(info, data)
     return buf.getvalue()
 

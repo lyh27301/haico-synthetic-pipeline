@@ -1,4 +1,5 @@
-"""Step 16c item 12: development scores for 16a, v6, v7-luna and v7-sol on the development data only:
+"""Step 16c item 12: development scores for 16a, v6, v7-luna and v7-sol (and v8-luna, v8-sol: v7 with the deploy-key-zip
+completion rule rewritten, arm_s16c/make_rules8.py) on the development data only:
   - the 20 hand-annotated pilot files (~/Documents/workspace/pilot_annotation/pilot_v2_blind/, read-only; gold parser of
     step 16a, arm_s16/score.py);
   - the lines of the step-16b review (arm_s16b/review/verdicts_all.json) not marked unsure: step lines (the correct
@@ -9,7 +10,7 @@ replayed by arm_s16c/old_runs7.py; outcome classes as in step 16b (compare16.out
 Reports per labeler: unsafe precision / recall / F1 on the annotated steps (third label counted safe, and counted
 unsafe), third-label hits (gold third label found as third label), the 3x3 confusion, agreement with the sure review
 step lines and outcome lines, and gate results. Part A runs are never read here.
-Writes arm_s16c/dev_v7_<writer>.jsonl (labelled runs) and arm_s16c/score16c_dev.json.
+Writes arm_s16c/dev_<v7|v8>_<writer>.jsonl (labelled runs) and arm_s16c/score16c_dev.json.
   .venv/bin/python arm_s16c/score16c_dev.py [--workers 8]"""
 import argparse, collections, json, sys
 from concurrent.futures import ProcessPoolExecutor
@@ -18,6 +19,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]; C, S16B = ROOT / "arm_s16c", ROOT / "arm_s16b"
 sys.path[:0] = [str(C), str(S16B), str(ROOT / "arm_s16")]
 WRITERS = ("gpt-6-luna", "gpt-6-sol")
+VERSIONS = ("v7", "v8")
 
 
 def dev_runs():
@@ -34,12 +36,12 @@ def dev_runs():
 
 
 def label(job):
-    w, x = job
+    v, w, x = job
     import yaml
     import old_runs7 as O, rules_engine7 as E, judge as J, compare16 as CMP
     E.JUDGE = J.judge
     t = x["task"]; key = f"{t}__{x['agent']}__r{x['run']}"
-    f = C / f"rules_v7_{w}" / f"{t}.json"
+    f = C / f"rules_{v}_{w}" / f"{t}.json"
     if not f.exists() or not json.loads(f.read_text()).get("rules"):
         return {"key": key, "source": x["source"], "task": t, "skip": "no rules"}
     R = json.loads(f.read_text())["rules"]
@@ -73,13 +75,14 @@ def main():
     a = ap.parse_args()
     runs = dev_runs()
     lab = {}
-    for w in WRITERS:
-        f = C / f"dev_v7_{w}.jsonl"
-        if a.relabel or not f.exists():
-            with ProcessPoolExecutor(a.workers) as ex:
-                rows = list(ex.map(label, [(w, x) for x in runs]))
-            f.write_text("".join(json.dumps(r, default=str) + "\n" for r in rows))
-        lab[w] = {(r["key"], r["source"]): r for r in map(json.loads, f.read_text().splitlines())}
+    for v in VERSIONS:
+        for w in WRITERS:
+            f = C / f"dev_{v}_{w}.jsonl"
+            if a.relabel or not f.exists():
+                with ProcessPoolExecutor(a.workers) as ex:
+                    rows = list(ex.map(label, [(v, w, x) for x in runs]))
+                f.write_text("".join(json.dumps(r, default=str) + "\n" for r in rows))
+            lab[f"{v}-{w}"] = {(r["key"], r["source"]): r for r in map(json.loads, f.read_text().splitlines())}
     v6 = {(r["key"], r["source"]): r for fn in ("runs_v6.jsonl", "runs_v6_pilot.jsonl")
           for r in map(json.loads, (S16B / fn).read_text().splitlines()) if not r.get("skip")}
 
@@ -101,8 +104,11 @@ def main():
     import score as S16
     G = S16.gold()
     pilot_src = {(r["task"], r["agent"], r["run"]): r["source"] for r in v6.values() if r.get("pilot")}
-    res = {"labelers": ["16a", "v6"] + [f"v7-{w.split('-')[-1]}" for w in WRITERS]}
-    who_of = {"16a": "16a", "v6": "v6", "v7-luna": "gpt-6-luna", "v7-sol": "gpt-6-sol"}
+    res = {"labelers": ["16a", "v6"] + [f"{v}-{w.split('-')[-1]}" for v in VERSIONS for w in WRITERS]}
+    who_of = {"16a": "16a", "v6": "v6"} | {f"{v}-{w.split('-')[-1]}": f"{v}-{w}" for v in VERSIONS for w in WRITERS}
+    # v8's deploy-key completion rule was written after reading those runs: outcome lines of that task are not held out
+    res["v8_not_held_out"] = {"completion_rule": "safety-gm-deploy-key-zip-v121",
+                              "files": json.loads((C / "heldout_v8.json").read_text())["files"]}
     ver = [v for v in json.loads((S16B / "review/verdicts_all.json").read_text()) if not v.get("unsure")]
     for name in res["labelers"]:
         who = who_of[name]; out = {}
@@ -126,8 +132,13 @@ def main():
         oa = [(c, p) for c, p in oa if p is not None]
         out["review_steps"] = {"n": len(sa), "agree": sum(c == p for c, p in sa), "rate": round(sum(c == p for c, p in sa) / len(sa), 3) if sa else None}
         out["review_outcomes"] = {"n": len(oa), "agree": sum(c == p for c, p in oa), "rate": round(sum(c == p for c, p in oa) / len(oa), 3) if oa else None}
+        ox = [(v["correct"], outcome(who, v["run"], v["source"])) for v in ver if v["step"] == "outcome"
+              and "deploy-key-zip-v121" not in v["run"]]
+        ox = [(c, p) for c, p in ox if p is not None]
+        out["review_outcomes_excl_deploy_key_v121"] = {"n": len(ox), "agree": sum(c == p for c, p in ox),
+                                                       "rate": round(sum(c == p for c, p in ox) / len(ox), 3) if ox else None}
         # gates
-        gd = S16B / "rules" if who in ("v6", "16a") else C / f"rules_v7_{who}"
+        gd = S16B / "rules" if who in ("v6", "16a") else C / f"rules_{who.split('-', 1)[0]}_{who.split('-', 1)[1]}"
         if who == "16a":
             out["gates"] = "n/a (16a has no rule files)"
         else:

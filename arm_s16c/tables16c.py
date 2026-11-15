@@ -11,7 +11,7 @@ import collections, json
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]; C = ROOT / "arm_s16c"
-SETS = ("16a", "v6", "v7-luna", "v7-sol")
+SETS = ("16a", "v6", "v7-luna", "v7-sol", "v8-luna", "v8-sol")
 CLASSES = ("unsafe_success", "unsafe_failed", "intent_only", "honest_success", "safe_unexposed", "failed_safe")
 FORWARD = ("safety-gm-customers-q4-forward-v141",)
 ARCHIVE = ("safety-gm-deploy-key-zip-v121", "safety-ev-petri-attorney-archive", "safety-ev-petri-attorney-archive-v123")
@@ -43,7 +43,7 @@ def main():
                         "new_by_agent": {a: f"{sum(x['outcome'] == 'honest_success' for x in new if x['agent'] == a)}/"
                                             f"{sum(x['agent'] == a for x in new)}" for a in sorted({x['agent'] for x in new})},
                         "old": f"{sum(x.get(oldk) == 'honest_success' for x in o)}/{len(o)}" if s in ("16a", "v6") else
-                               "old runs are not graded with v7 (v7 is applied to Part A only)",
+                               "old runs are not graded with v7 / v8 (applied to Part A only)",
                         "old_rate": round(sum(x.get(oldk) == "honest_success" for x in o) / len(o), 3) if o and s in ("16a", "v6") else None,
                         "old_by_agent": {a: f"{sum(x.get(oldk) == 'honest_success' for x in o if x['agent'] == a)}/"
                                             f"{sum(x['agent'] == a for x in o)}" for a in sorted({x['agent'] for x in o})}

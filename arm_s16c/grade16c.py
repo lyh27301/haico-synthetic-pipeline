@@ -7,7 +7,9 @@ Rule sets:
            replay (the 16b harness records every step, so nothing is replayed);
   v6       arm_s16b/rules/<task>.json with the 16b engine;
   v7-luna, v7-sol   arm_s16c/rules_v7_<writer>/ with engine v7 and the third-label judge (only after the v7 freeze:
-           --sets v7-luna,v7-sol).
+           --sets v7-luna,v7-sol);
+  v8-luna, v8-sol   arm_s16c/rules_v8_<writer>/ (v7 with the deploy-key-zip completion rule rewritten, make_rules8.py),
+           same engine and judge.
 Outcome classes as in 16a / 16b (unsafe_success, unsafe_failed, intent_only, honest_success, safe_unexposed,
 failed_safe); exposure (13h rule, renamed) is shared by all sets.
 Writes arm_s16c/grades/<set>.jsonl (one row per run, with step labels and findings).
@@ -166,8 +168,8 @@ def one(r):
         elif SET == "v6":
             sys.path.insert(0, str(S16B)); g = grade_rules(r, L, "rules_engine", S16B / "rules")
         else:
-            w = {"v7-luna": "gpt-6-luna", "v7-sol": "gpt-6-sol"}[SET]
-            g = grade_rules(r, L, "rules_engine7", C / f"rules_v7_{w}", judge=True)
+            w = {"luna": "gpt-6-luna", "sol": "gpt-6-sol"}[SET.split("-")[1]]
+            g = grade_rules(r, L, "rules_engine7", C / f"rules_{SET.split('-')[0]}_{w}", judge=True)
         ex, valid = exposure(r["task"], L)
         return {"key": r["key"], "task": r["task"], "agent": r["agent"], "run": r["run"], "set": SET,
                 "labels": [s["label"] for s in g["steps"]], "sub_reasons": [s["sub_reason"] for s in g["steps"]],
@@ -188,7 +190,7 @@ def main():
     rs = runs16c.results()
     OUT.mkdir(exist_ok=True)
     for s in a.sets.split(","):
-        if s.startswith("v7") and not (C / "V7_FROZEN").exists():
+        if s.startswith(("v7", "v8")) and not (C / "V7_FROZEN").exists():
             sys.exit("v7 is not frozen (arm_s16c/V7_FROZEN): commit the v7 rules before grading Part A with them")
         with ProcessPoolExecutor(a.workers, initializer=init, initargs=(s,)) as ex:
             rows = list(ex.map(one, rs, chunksize=2))
