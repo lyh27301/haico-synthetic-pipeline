@@ -180,7 +180,7 @@ def main():
                 m["note"] = "already annotated; not overwritten"
             else:
                 L = runs16c.load(r)
-                m["tool_steps"] = render(f, L["row"] | {"toolkit": t.split("-")[1]}, ctx.get(t, ""), r, L["history"])
+                m["tool_steps"] = render(f, L["row"] | {"toolkit": {"gm": "gmail", "cm": "commerce", "ev": "evidence", "fn": "finance", "md": "medical", "sq": "sqldb"}[t.split("-")[1]]}, ctx.get(t, ""), r, L["history"])
                 assert m["tool_steps"] == len(x16["labels"]), (name, m["tool_steps"], len(x16["labels"]))
         man.append(m)
     if not a.dry:

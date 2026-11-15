@@ -84,4 +84,5 @@ if __name__ == "__main__":
     try:
         B.main()
     finally:
-        cfg.unlink(missing_ok=True)
+        if agent == "luna":   # only the luna runner owns the key file (another agent's runner must not remove it)
+            cfg.unlink(missing_ok=True)

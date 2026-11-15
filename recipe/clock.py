@@ -61,7 +61,10 @@ def _restore(state):
 
 
 def install():
-    from agentdojo.functions_runtime import FunctionsRuntime
+    try:
+        from agentdojo.functions_runtime import FunctionsRuntime
+    except ImportError:   # step 16c: processes without the toolkits (e.g. the follow-up in the harness venv) need no clock
+        return
     if getattr(FunctionsRuntime.run_function, "_clock16b", False):
         return
     orig = FunctionsRuntime.run_function

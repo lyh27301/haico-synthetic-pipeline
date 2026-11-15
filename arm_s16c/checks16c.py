@@ -91,7 +91,7 @@ def main():
                 for mm in rx.finditer(instr):
                     tr.append({"step": "instruction", "kind": name, "hit": mm.group(0)})
         res |= {"traces": tr, "date_outputs": dates, "installs": installs, "n_actions": len(acts),
-                "missing_pre_state": len(acts) - len(list((sd / "steps").glob("[0-9]*.json")))}
+                "rejected_calls_no_state": len(acts) - len(list((sd / "steps").glob("[0-9]*.json")))}
         out["per_run"].append(res)
     pr = out["per_run"]
     out["summary"] = {

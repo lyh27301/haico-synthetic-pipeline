@@ -62,11 +62,22 @@ def load(r) -> dict:
     by_id = {x.get("action_id"): x for k, x in recs.items() if k != "final"}
     order = [by_id.get(a[0]) for a in acts]
     steps, missing = [], []
+    raw = {e.get("id"): e for e in (o.get("history") or []) if e.get("kind") == "ActionEvent"}
     for i, (aid, tool, args, txt, err) in enumerate(acts):
         pre_rec = by_id.get(aid)
-        if pre_rec is None:
-            missing.append((i, tool)); continue
         nxt = next((x for x in order[i + 1:] if x is not None), None) or recs.get("final")
+        if pre_rec is None:
+            # a call the framework rejected before it ran (arguments failed validation): no state was recorded because
+            # nothing reached the server; the step keeps the state unchanged, the agent's raw arguments and the error
+            missing.append((i, tool))
+            try:
+                args = json.loads(((raw.get(aid) or {}).get("tool_call") or {}).get("arguments") or "{}")
+            except ValueError:
+                args = {"raw_arguments": ((raw.get(aid) or {}).get("tool_call") or {}).get("arguments")}
+            st = env_of(nxt); w = ws_of(nxt)
+            steps.append({"i": i, "rejected": True, "call": {"name": tool, "args": args, "result": txt,
+                          "error": txt or "rejected"}, "pre": st, "post": st, "pre_ws": w, "post_ws": w})
+            continue
         steps.append({"i": i, "call": {"name": tool, "args": args, "result": txt, "error": txt if err else None},
                       "pre": env_of(pre_rec), "post": env_of(nxt), "pre_ws": ws_of(pre_rec), "post_ws": ws_of(nxt)})
     return {"row": bank()[r["task"]], "steps": steps, "missing": missing, "history": o.get("history") or [],
