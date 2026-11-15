@@ -105,6 +105,12 @@ def extract(data: bytes, name: str = "", depth: int = 0) -> str:
             pass
     if data[:5] == b"%PDF-":
         return pdf_text(data)[:MAX_TEXT]
+    if data[:8] == b"\x89PNG\r\n\x1a\n":   # step 16c: a PNG's Description text (filegen.png), else a marker
+        i = data.find(b"tEXtDescription\x00")
+        if i >= 0:
+            n = int.from_bytes(data[i - 4:i], "big")
+            return data[i + 16:i + 4 + n].decode("latin-1")[:MAX_TEXT]
+        return f"[image {name}, {len(data)} bytes]"
     if b"\x00" not in data[:8192]:
         try:
             return data.decode("utf-8")[:MAX_TEXT]

@@ -2,7 +2,7 @@
 
 The agent's own tools run with the agent's privileges, not the server's:
   - terminal: the shell is /opt/.oh16b/agent-shell, which drops to the unprivileged user `agent` with a clean
-    environment (no server variables), the fixed date (libfaketime) and resource limits;
+    environment (no server variables), the fixed date (libclock.so.1, step 16c) and resource limits;
   - file_editor: runs inside the server (root), so each call is checked against what `agent` may read or write
     (Unix permissions of the path and its parents, symlinks resolved), and files it creates are owned by `agent`;
   - the server's own files (conversation store, bash events, task tracker, editor history, temp files) live under
@@ -13,7 +13,10 @@ The agent's own tools run with the agent's privileges, not the server's:
     control back to the agent, they never stop the command).
 Per-step state (item 8): before each tool call the server records the workspace (real bytes, content-addressed) and
 the toolkit state as the MCP server last wrote it (sealed post.json), in /var/lib/.oh16b/steps/<n>.json. The record for
-step n is the environment right before step n; `final.json` is written by the harness after the run."""
+step n is the environment right before step n; `final.json` is written by the harness after the run.
+Step 16c: Claude 5.5 agents get readable thinking: the request's thinking setting becomes {"type": "adaptive",
+"display": "summarized"} (the API default is adaptive thinking with the text omitted), so the transcript shows the
+model's reasoning summary. Thinking itself is unchanged (adaptive, the API's default effort)."""
 from __future__ import annotations
 
 import base64
@@ -183,8 +186,21 @@ def _watchdog(limit: float):
             continue
 
 
+def _patch_thinking():
+    import openhands.sdk.llm.llm as L
+    orig = L.select_chat_options
+
+    def wrapped(llm, kw, has_tools):
+        out = orig(llm, kw, has_tools)
+        if any(m in str(llm.model) for m in ("claude-haiku-5-5", "claude-sonnet-5-5", "claude-opus-5-5")):
+            out["thinking"] = {"type": "adaptive", "display": "summarized"}
+        return out
+    L.select_chat_options = wrapped
+
+
 def install():
     os.makedirs(ROOT, mode=0o700, exist_ok=True)
+    _patch_thinking()
     _patch_terminal()
     _patch_editor()
     _patch_git()

@@ -1,10 +1,8 @@
 #!/bin/sh
 # Step 16b: the agent's terminal. Started by the agent-server (root) as `agent-shell -i`; becomes user `agent` with a
-# clean environment (no server variables) and resource limits (file size 512 MB, 256 processes). The task's date comes
-# from libfaketime, preloaded after the privilege drop (LD_PRELOAD; setuid programs such as sudo ignore it), which reads
-# the offset the harness writes to /etc/faketimerc.
+# clean environment (no server variables) and resource limits (file size 512 MB, 256 processes). Step 16c: the task's
+# date comes from libclock.so.1 in /etc/ld.so.preload (harness/v16b/clock.c), so no variable is set here.
 exec env -i PATH=/usr/local/bin:/usr/bin:/bin HOME=/home/agent USER=agent LOGNAME=agent SHELL=/bin/bash \
   LANG=C.UTF-8 TERM="${TERM:-xterm-256color}" PS1="$PS1" PS2="$PS2" PAGER=cat GIT_PAGER=cat GIT_TERMINAL_PROMPT=0 TZ=UTC \
   /usr/bin/setpriv --reuid=agent --regid=agent --init-groups --inh-caps=-all --bounding-set=-net_admin \
-  /usr/bin/prlimit --fsize=536870912 --nproc=256 -- \
-  /usr/bin/env LD_PRELOAD=/usr/lib/x86_64-linux-gnu/faketime/libfaketime.so.1 /bin/bash "$@"
+  /usr/bin/prlimit --fsize=536870912 --nproc=256 -- /bin/bash "$@"

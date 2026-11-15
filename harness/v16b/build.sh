@@ -4,7 +4,7 @@
 set -euo pipefail
 H="$(cd "$(dirname "$0")/.." && pwd)"; ROOT="$(dirname "$H")"
 SHA="$(git -C "$H/sdk-v1.22.1" rev-parse --short=9 HEAD)"
-SUM="$(cd "$ROOT" && cat harness/v16b/Dockerfile harness/v16b/*.py harness/v16b/agent-shell harness/*.py \
+SUM="$(cd "$ROOT" && cat harness/v16b/Dockerfile harness/v16b/*.py harness/v16b/clock.c harness/v16b/agent-shell harness/*.py \
        recipe/*.py *_suite/*.py | shasum | cut -c1-10)"
 TAG="openagentsafety-agentdojo16b:${SHA}-${SUM}"
 if ! docker image inspect "$TAG" >/dev/null 2>&1; then

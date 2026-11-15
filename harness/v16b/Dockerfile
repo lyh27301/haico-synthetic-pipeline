@@ -4,7 +4,9 @@
 #     poppler-utils (pdftotext, pdfunite), qpdf, zip / unzip / 7z, sqlite3, jq; Python: pypdf, PyPDF2, openpyxl,
 #     pandas, python-docx, reportlab, fpdf2, xlsxwriter, pdfplumber, tabulate. Mail clients (mutt, msmtp, ...) are
 #     deliberately not installed.
-#   - iptables (network rules), faketime (the task's date in the agent's terminal), sudo (only for chat_npc);
+#   - iptables (network rules), sudo (only for chat_npc);
+#   - step 16c: the task's date comes from libclock.so.1 (harness/v16b/clock.c) listed in /etc/ld.so.preload; it acts
+#     only in the agent's processes and needs no environment variable (step 16b's libfaketime is gone);
 #   - user `agent` (uid 1000) runs the agent's terminal; harness files are root-only (mode 700);
 #   - the agent-server's conversation store and bash events live in /var/lib/.oh16b (root, 700), VSCode off;
 #   - TheAgentCompany leftovers removed: /utils, /npc defaults, REDIS / BOT / credential variables, the hosts entry
@@ -12,7 +14,7 @@
 ARG BASE
 FROM ${BASE}
 RUN apt-get update && apt-get install -y --no-install-recommends poppler-utils qpdf zip unzip p7zip-full sqlite3 jq \
-      iptables faketime libfaketime sudo util-linux \
+      iptables sudo util-linux \
  && rm -rf /var/lib/apt/lists/*
 RUN pip install --no-cache-dir pypdf PyPDF2 openpyxl pandas python-docx reportlab fpdf2 xlsxwriter pdfplumber tabulate
 RUN python -m venv /opt/agentdojo-venv \
@@ -40,12 +42,15 @@ RUN rm -rf /utils /npc /instruction && mkdir -p /npc && chmod 700 /npc \
  && mv /usr/local/bin/chat_npc /opt/.oh16b/chat_npc_real \
  && printf '#!/bin/sh\nexec sudo -n /opt/.oh16b/chat_npc_real "$@"\n' > /usr/local/bin/chat_npc && chmod 755 /usr/local/bin/chat_npc \
  && echo 'agent ALL=(root) NOPASSWD: /opt/.oh16b/chat_npc_real' > /etc/sudoers.d/chat_npc && chmod 440 /etc/sudoers.d/chat_npc
-COPY harness/v16b/start.py harness/v16b/server_patch.py harness/v16b/agent-shell harness/ws_store.py harness/filetext.py /opt/.oh16b/
+COPY harness/v16b/start.py harness/v16b/server_patch.py harness/v16b/agent-shell harness/v16b/setclock.py harness/ws_store.py harness/filetext.py /opt/.oh16b/
+COPY harness/v16b/clock.c /tmp/clock.c
+RUN gcc -O2 -shared -fPIC -o /usr/lib/x86_64-linux-gnu/libclock.so.1 /tmp/clock.c -ldl && rm /tmp/clock.c \
+ && chmod 755 /usr/lib/x86_64-linux-gnu/libclock.so.1 && echo /usr/lib/x86_64-linux-gnu/libclock.so.1 > /etc/ld.so.preload
 RUN chmod 700 /opt/.oh16b /opt/agentdojo /opt/agentdojo-venv /var/lib/.oh16b && chmod 700 /opt/.oh16b/agent-shell \
  && chmod 755 /opt/.oh16b/chat_npc_real
 ENV OH_CONVERSATIONS_PATH=/var/lib/.oh16b/conversations OH_BASH_EVENTS_DIR=/var/lib/.oh16b/bash_events \
-    OH_ENABLE_VSCODE=false PYTHONPATH= FAKETIME=+0
-# the task's date (item 4): the agent's shell preloads libfaketime (agent-shell), which reads the per-task offset the
-# harness writes to /etc/faketimerc; setuid programs (sudo for chat_npc) and root processes keep the real clock
+    OH_ENABLE_VSCODE=false PYTHONPATH=
+# the task's date: harness/v16b/setclock.py (root) writes the offset into libclock.so.1 before the agent's terminal
+# starts; root processes and setuid programs (sudo for chat_npc) keep the real clock
 ENTRYPOINT ["python", "/opt/.oh16b/start.py"]
 CMD ["--host", "0.0.0.0", "--port", "8000"]

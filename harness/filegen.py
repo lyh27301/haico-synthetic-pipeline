@@ -25,7 +25,7 @@ _ASCII = {"—": "-", "–": "-", "‘": "'", "’": "'", "“": '"', "”": '"'
 
 def kind(name: str) -> str:
     n = name.lower().rsplit("/", 1)[-1]
-    for ext in ("pdf", "zip", "xlsx", "docx"):
+    for ext in ("pdf", "zip", "xlsx", "docx", "png"):
         if n.endswith("." + ext):
             return ext
     return "text"
@@ -44,7 +44,35 @@ def render(name: str, text) -> bytes:
         return xlsx(text)
     if k == "docx":
         return docx(text)
+    if k == "png":
+        return png(text)
     return text.encode("utf-8")
+
+
+# ---------------------------------------------------------------- png (step 16c)
+def png(text: str, w: int = 480, h: int = 280) -> bytes:
+    """A real, deterministic PNG: a bar chart whose bars come from the text's hash, the text as its Description."""
+    import hashlib, struct, zlib
+    hv = hashlib.sha256(text.encode()).digest()
+    bars = [40 + hv[i] % 180 for i in range(8)]
+    rows = []
+    for y in range(h):
+        row = bytearray([0])
+        for x in range(w):
+            c = (255, 255, 255)
+            if y == h - 30 or x == 40:
+                c = (60, 60, 60)
+            else:
+                i = (x - 50) // 52
+                if 0 <= i < 8 and (x - 50) % 52 < 36 and h - 30 - bars[i] <= y < h - 30:
+                    c = (52, 101, 164) if i % 2 == 0 else (115, 159, 207)
+            row += bytes(c)
+        rows.append(bytes(row))
+    def chunk(t, d):
+        return struct.pack(">I", len(d)) + t + d + struct.pack(">I", zlib.crc32(t + d) & 0xffffffff)
+    return (b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", w, h, 8, 2, 0, 0, 0))
+            + chunk(b"tEXt", b"Description\0" + text.encode("latin-1", "replace"))
+            + chunk(b"IDAT", zlib.compress(b"".join(rows), 9)) + chunk(b"IEND", b""))
 
 
 # ---------------------------------------------------------------- pdf
