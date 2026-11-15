@@ -16,6 +16,38 @@ from agentdojo.functions_runtime import Depends, FunctionsRuntime
 
 from sqldb_suite.environment import Table
 
+FROZEN_NOW = None   # step 16b (set by recipe.clock from env.current_date): SQLite's 'now', e.g. "2026-11-03 09:00:00"
+V16B = False        # step 16b: return every statement's result, not only the last one (N7)
+_TIME_FUNCS = ("date", "time", "datetime", "julianday", "unixepoch", "strftime")
+
+
+def _freeze(conn: sqlite3.Connection, now: str):
+    """Make 'now' a fixed moment on this connection: the date functions are replaced by wrappers that substitute it
+    and evaluate on a plain helper connection (SQLite lets an application function override a built-in one)."""
+    aux = sqlite3.connect(":memory:")
+
+    def mk(fn):
+        def f(*a):
+            a = [now if isinstance(x, str) and x.strip().lower() == "now" else x for x in a]
+            if fn != "strftime" and not a:
+                a = [now]
+            return aux.execute(f"SELECT {fn}({', '.join('?' for _ in a)})", a).fetchone()[0]
+        return f
+    for fn in _TIME_FUNCS:
+        conn.create_function(fn, -1, mk(fn))
+    return aux
+
+
+def _frozen_keywords(stmt: str) -> str:
+    """CURRENT_DATE / CURRENT_TIME / CURRENT_TIMESTAMP (keywords, not functions) -> the wrapped functions; string
+    literals are left alone."""
+    parts = re.split(r"('(?:[^']|'')*')", stmt)
+    rep = {"current_timestamp": "datetime('now')", "current_date": "date('now')", "current_time": "time('now')"}
+    for i in range(0, len(parts), 2):
+        parts[i] = re.sub(r"(?i)\bcurrent_(timestamp|date|time)\b", lambda m: rep[m.group(0).lower()], parts[i])
+    return "".join(parts)
+
+
 WRITE_VERBS = ("insert", "update", "delete", "create", "drop", "alter", "replace")
 
 
@@ -101,7 +133,11 @@ def sql_database(
     if not stmts:
         raise ValueError("QueryExecutionException: empty query")
     conn = sqlite3.connect(":memory:")
+    aux = _freeze(conn, FROZEN_NOW) if FROZEN_NOW else None
+    if FROZEN_NOW:
+        stmts = [_frozen_keywords(s) for s in stmts]
     conn.set_authorizer(_no_files)
+    per = []
     try:
         _load(conn, databases[database])
         results, affected = [], 0
@@ -109,20 +145,30 @@ def sql_database(
             try:
                 cur = conn.execute(s)
             except sqlite3.Error as e:
+                if V16B and per:   # step 16b: say which statement failed and what the earlier ones did (nothing is kept)
+                    raise ValueError(f"QueryExecutionException: statement {len(per) + 1} of {len(stmts)}: {e} "
+                                     f"(no statement of this call was applied)") from None
                 raise ValueError(f"QueryExecutionException: {e}") from None
             if cur.description:
                 cols = [d[0] for d in cur.description]
                 results = [dict(zip(cols, r)) for r in cur.fetchall()]
-            elif cur.rowcount and cur.rowcount > 0:
-                affected += cur.rowcount
+                per.append({"statement": len(per) + 1, "results": results})
+            else:
+                n = cur.rowcount if cur.rowcount and cur.rowcount > 0 else 0
+                affected += n
+                per.append({"statement": len(per) + 1, "rows_affected": n})
         conn.commit()
         if is_write(query):
             databases[database] = _dump(conn)
     finally:
         conn.close()
+        if aux is not None:
+            aux.close()
     out = {"results": results, "success": True}
     if affected:
         out["rows_affected"] = affected
+    if V16B and len(stmts) > 1:   # step 16b (N7): several statements used to return only the last result
+        out["statement_results"] = per
     return out
 
 

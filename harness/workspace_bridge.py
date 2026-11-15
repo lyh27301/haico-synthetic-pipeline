@@ -148,3 +148,95 @@ def call(prof, env, runtime, name: str, args: dict, ws: dict | None, downloads: 
         if temp_email is not None:
             env.inbox.remove(temp_email)
     return res, err, (note or None)
+
+
+# ------------------------------------------------------------------ step 16b
+LIST_TOOLS = ("bank_list_files", "list_workspace_files")
+
+
+def _read(path: str, cwd: str = "/workspace"):
+    p = path if path.startswith("/") else os.path.normpath(os.path.join(cwd, path))
+    try:
+        if os.path.isfile(p):
+            with open(p, "rb") as fh:
+                return p, fh.read()
+    except OSError:
+        pass
+    return p, None
+
+
+def _agent_files(root: str = "/workspace") -> list[str]:
+    out = []
+    for d, dirs, files in os.walk(root):
+        dirs[:] = [x for x in dirs if not x.startswith(".")]
+        out += [os.path.join(d, f) for f in files if not f.startswith(".")]
+    return sorted(out)
+
+
+def call16b(prof, env, runtime, name: str, args: dict, blob_dir: str):
+    """runtime.run_function with the real disk overlaid (step 16b). Files are read as bytes when the call happens; a
+    binary is held in the toolkit state as a marker (ws_store.marker) whose text is extracted at grading time.
+      - file arguments (bank_send_statement, upload_evidence): a file on disk the toolkit does not hold is visible for
+        this call; a held file whose disk copy differs from the held content (rendered as the real file) is read from
+        disk (the agent edited the staged copy);
+      - list tools (bank_list_files, list_workspace_files): files under /workspace are listed with the held ones;
+      - send_email attachments: a disk path attaches that file; a downloaded attachment whose bytes are unchanged
+        attaches the original (by id), so it is the same item the inbox holds.
+    Returns (result, error, note)."""
+    import filegen  # noqa: PLC0415
+    import ws_store  # noqa: PLC0415
+    note, added, swapped, temp_email, args = [], [], {}, None, dict(args or {})
+    files = getattr(env, "files", None)
+    if isinstance(files, dict):
+        for k in FILE_ARGS.get(name, ()):
+            p0 = args.get(k)
+            if not isinstance(p0, str):
+                continue
+            p, data = _read(p0)
+            if data is None:
+                continue
+            key = p0 if p0 in files else (p if p in files else None)
+            if key is None:
+                files[p0] = ws_store.marker(data, p.rsplit("/", 1)[-1], blob_dir); added.append(p0)
+                note.append(f"workspace:{p0}")
+            elif ws_store.sha(data) != ws_store.sha(filegen.render(key, files[key])):
+                swapped[key] = files[key]; files[key] = ws_store.marker(data, p.rsplit("/", 1)[-1], blob_dir)
+                note.append(f"workspace-edited:{key}")
+        if name in LIST_TOOLS:
+            for p in _agent_files():
+                if p not in files:
+                    _, data = _read(p)
+                    if data is not None:
+                        files[p] = ws_store.marker(data, p.rsplit("/", 1)[-1], blob_dir); added.append(p)
+    if name == "send_email" and isinstance(args.get("attachments"), list) and hasattr(env, "inbox"):
+        by_id = {a.id: a for e in env.inbox for a in e.attachments}
+        atts, new = [], []
+        for a in args["attachments"]:
+            if not isinstance(a, str) or a in by_id:
+                atts.append(a); continue
+            p, data = _read(a)
+            if data is None:
+                atts.append(a); continue
+            same = [x for x in by_id.values() if (x.name or x.id) == p.rsplit("/", 1)[-1]
+                    and ws_store.sha(filegen.render(x.name or x.id, x.content)) == ws_store.sha(data)]
+            if same:
+                atts.append(same[0].id); note.append(f"download:{a}->{same[0].id}")
+            else:
+                new.append((p, ws_store.marker(data, p.rsplit("/", 1)[-1], blob_dir))); atts.append(p)
+                note.append(f"workspace:{a}")
+        args["attachments"] = atts
+        if new:
+            from gmail_suite.environment import Attachment, Email   # noqa: PLC0415
+            temp_email = Email(id="__workspace__", attachments=[
+                Attachment(id=p, name=p.rsplit("/", 1)[-1], content=t) for p, t in new])
+            env.inbox.append(temp_email)
+    try:
+        res, err = runtime.run_function(env, name, args)
+    finally:
+        for p in added:
+            files.pop(p, None)
+        for p, orig in swapped.items():
+            files[p] = orig
+        if temp_email is not None:
+            env.inbox.remove(temp_email)
+    return res, err, (note or None)

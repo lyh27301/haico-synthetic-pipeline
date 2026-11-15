@@ -18,6 +18,13 @@ from gmail_suite.environment import (
     Email,
 )
 
+# Step 16b (set per call by recipe.clock from the environment; defaults keep the old behaviour):
+NOW = None          # env.current_date -> timestamp of sent / forwarded mail (was the literal "now")
+OWNER = None        # env.owner_email -> sender of sent / forwarded mail (was ACCOUNT_EMAIL)
+V16B = False        # step-16b tool contracts: download_attachment writes a real file and returns its real path
+FILE_SINK = None    # set by the MCP server: callable(path, name, text) that writes the attachment to disk as a real file
+DOWNLOAD_DIR = "/workspace/downloads"
+
 
 def _as_list(x) -> list[str]:
     if x is None:
@@ -70,18 +77,61 @@ def send_email(
         att_objs.append(found)
     email = Email(
         id=f"sent_{len(sent) + 1}",
-        sender=ACCOUNT_EMAIL,
+        sender=OWNER or ACCOUNT_EMAIL,
         recipients=_as_list(to),
         cc=_as_list(cc),
         bcc=_as_list(bcc),
         subject=subject,
         body=body,
-        timestamp=send_at or "now",
+        timestamp=send_at or NOW or "now",
         folder="sent",
         attachments=att_objs,
     )
     sent.append(email)
     return {"success": True}
+
+
+def forward_email(
+    sent: Annotated[list, Depends("sent")],
+    inbox: Annotated[list, Depends("inbox")],
+    trash: Annotated[list, Depends("trash")],
+    email_id: str,
+    to: str | list[str],
+    note: str = "",
+    cc: str | list[str] | None = None,
+    bcc: str | list[str] | None = None,
+    attachment_ids: list[str] | None = None,
+) -> dict:
+    """Forward an existing email, with its attachments, to new recipients.
+
+    :param email_id: The id of the email to forward (from search_emails).
+    :param to: Recipient email address(es): a single string, a comma-separated string, or a list of strings.
+    :param note: Text to put above the forwarded message. If empty, none.
+    :param cc: CC email address(es). If null, none.
+    :param bcc: BCC email address(es). If null, none.
+    :param attachment_ids: Which of the email's attachments to include (ids from read_email). If null, all of them; an empty list forwards the message without attachments.
+    """
+    # step 16b (T4): 18 tasks asked to forward with no forward tool
+    e = _find_email([inbox, sent, trash], email_id)
+    if e is None:
+        raise ValueError(f"EmailNotFound: no email {email_id!r}; search_emails returns email ids")
+    own = {a.id: a for a in e.attachments}
+    if attachment_ids is None:
+        atts = list(e.attachments)
+    else:
+        bad = [a for a in _as_list(attachment_ids) if a not in own]
+        if bad:
+            raise ValueError(f"AttachmentNotFound: {bad} not attached to email {email_id!r} "
+                             f"(its attachment ids: {sorted(own)})")
+        atts = [own[a] for a in _as_list(attachment_ids)]
+    quoted = (f"---------- Forwarded message ---------\nFrom: {e.sender}\nDate: {e.timestamp}\n"
+              f"Subject: {e.subject}\nTo: {', '.join(e.recipients)}\n\n{e.body}")
+    subject = e.subject if e.subject.lower().startswith(("fwd:", "fw:")) else f"Fwd: {e.subject}"
+    email = Email(id=f"sent_{len(sent) + 1}", sender=OWNER or ACCOUNT_EMAIL, recipients=_as_list(to), cc=_as_list(cc),
+                  bcc=_as_list(bcc), subject=subject, body=(f"{note}\n\n" if note else "") + quoted,
+                  timestamp=NOW or "now", folder="sent", attachments=atts)
+    sent.append(email)
+    return {"success": True, "email_id": email.id, "attachments": [a.id for a in atts]}
 
 
 def _place_match(e: Email, pool: str, wanted: list[str]) -> bool:
@@ -339,15 +389,23 @@ def download_attachment(
     missing = [a for a in _as_list(attachment_ids) if a not in known]
     if missing:   # step 13g: any id used to be "downloaded"
         raise ValueError(f"AttachmentNotFound: no attachment {missing}; search_attachments returns attachment ids")
+    by_id = {a.id: a for e in inbox for a in e.attachments}
     for aid in _as_list(attachment_ids):
         if aid not in downloads:
             downloads.append(aid)
-        paths.append(f"/downloads/{aid}")
+        if V16B:   # step 16b (N7): the path returned is the real file on disk, readable by the terminal and the other tools
+            a = by_id[aid]
+            path = f"{DOWNLOAD_DIR}/{a.name or aid}"
+            if FILE_SINK is not None:
+                FILE_SINK(path, a.name or aid, a.content)
+            paths.append(path)
+        else:
+            paths.append(f"/downloads/{aid}")
     return {"attachment_paths": paths}
 
 
 GMAIL_TOOLS = [
-    send_email, search_emails, search_attachments, read_email, organize_email, delete_emails,
+    send_email, forward_email, search_emails, search_attachments, read_email, organize_email, delete_emails,
     add_or_update_contact, delete_contact, search_contacts, download_attachment,
 ]
 

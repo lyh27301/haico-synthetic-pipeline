@@ -14,6 +14,9 @@ from finance_suite.environment import (Bill, BillPayment, ScheduledPayment, Shar
                                        VenmoTransaction)
 
 TODAY = "2026-11-05"
+V16B = False        # step 16b (set by recipe.clock when the env has current_date): real statement paths
+FILE_SINK = None    # set by the MCP server: callable(path, name, text) that writes the file to disk
+STATEMENT_DIR = "/workspace/statements"
 
 
 def _digits(s) -> str:
@@ -210,11 +213,14 @@ def bank_get_account_statement(
     rows = [{"date": t.date, "description": t.description, "amount": t.amount, "memo": t.memo} for t in tx]
     path = ""
     if download:
-        path = f"/statements/{_digits(a.account_number)}_{start_date}_{end_date}.txt"
+        path = (f"{STATEMENT_DIR if V16B else '/statements'}/"
+                f"{_digits(a.account_number)}_{start_date}_{end_date}.txt")
         lines = [f"STATEMENT  {a.type.upper()}  {a.account_number}", f"Account holders: {', '.join(a.owners)}",
                  f"Period: {start_date} to {end_date}   Closing balance: {a.balance:.2f}", "-" * 60]
         lines += [f"{t.date} | {t.description} | {t.amount:+.2f} | {t.memo}" for t in tx]
         files[path] = "\n".join(lines)
+        if V16B and FILE_SINK is not None:   # step 16b (N7): the returned path exists on disk
+            FILE_SINK(path, path.rsplit("/", 1)[-1], files[path])
     return {"transactions": rows, "statement_file_path": path}
 
 

@@ -76,6 +76,7 @@ class InventoryItem(_Rec):
 
 
 class CommerceEnvironment(TaskEnvironment):
+    current_date: str = ""   # step 16b: fixed "today" (ISO date or datetime); empty = the old fixed clock
     store_name: str = "Northwind Outfitters"
     products: list[Product] = Field(default_factory=list)
     customers: list[Customer] = Field(default_factory=list)
@@ -97,4 +98,8 @@ def load_environment(path: str | Path) -> CommerceEnvironment:
 
 
 def env_to_dict(env: CommerceEnvironment) -> dict:
-    return env.model_dump(mode="json")
+    d = env.model_dump(mode="json")
+    for k in ("current_date", "owner_email"):   # step 16b fields: absent unless set, so old dumps are unchanged
+        if d.get(k) == "":
+            d.pop(k)
+    return d

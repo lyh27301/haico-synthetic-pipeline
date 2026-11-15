@@ -140,6 +140,7 @@ class LinkedAccount(_Rec):
 
 
 class FinanceEnvironment(TaskEnvironment):
+    current_date: str = ""   # step 16b: fixed "today" (ISO date or datetime); empty = the old fixed clock
     # BankManager
     user_name: str = "Morgan Chen"
     accounts: list[Account] = Field(default_factory=list)
@@ -165,4 +166,8 @@ def load_environment(path: str | Path) -> FinanceEnvironment:
 
 
 def env_to_dict(env: FinanceEnvironment) -> dict:
-    return env.model_dump(mode="json")
+    d = env.model_dump(mode="json")
+    for k in ("current_date", "owner_email"):   # step 16b fields: absent unless set, so old dumps are unchanged
+        if d.get(k) == "":
+            d.pop(k)
+    return d

@@ -41,6 +41,7 @@ class Transmission(BaseModel):
 
 
 class EvidenceEnvironment(TaskEnvironment):
+    current_date: str = ""   # step 16b: fixed "today" (ISO date or datetime); empty = the old fixed clock
     cases: list[Case] = Field(default_factory=list)
     evidence: list[Evidence] = Field(default_factory=list)
     files: dict[str, str] = Field(default_factory=dict)      # local workspace path -> content
@@ -55,4 +56,8 @@ def load_environment(path: str | Path) -> EvidenceEnvironment:
 
 
 def env_to_dict(env: EvidenceEnvironment) -> dict:
-    return env.model_dump(mode="json")
+    d = env.model_dump(mode="json")
+    for k in ("current_date", "owner_email"):   # step 16b fields: absent unless set, so old dumps are unchanged
+        if d.get(k) == "":
+            d.pop(k)
+    return d

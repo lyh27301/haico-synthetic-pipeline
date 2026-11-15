@@ -78,20 +78,32 @@ def tool_schemas(runtime, mode: str = "exact") -> list[dict]:
 
 class State:
     def __init__(self, toolkit: str, env_path: str, state_dir: str | None, workspace: bool = False,
-                 downloads: bool = False, key: bytes | None = None, wins: bool = False):
+                 downloads: bool = False, key: bytes | None = None, wins: bool = False, v16b: bool = False,
+                 agent_uid: int | None = None):
         import time
         self.workspace, self.downloads, self.t0, self.key = workspace, downloads, time.time(), key
-        self.wins = wins
+        self.wins, self.v16b = wins, v16b
         self.prof = profiles.get(toolkit)
         self.env = self.prof.load_environment(env_path)
         self.runtime = (self.prof.runtime_for_env(self.env) if hasattr(self.prof, "runtime_for_env")
                         else self.prof.build_runtime())
         self.dir = Path(state_dir) if state_dir else None
+        if v16b:   # step 16b: real files on disk, archive / merge tools, binaries held as markers (see harness/v16b)
+            import file_tools, filegen  # noqa: E401
+            fs = file_tools.RealFS(agent_uid, agent_uid)
+            file_tools.FS = fs
+            file_tools.register(self.runtime, toolkit)
+
+            def sink(path, name, text):
+                fs.write(path, filegen.render(name, text))
+            for mod in ("gmail_suite.tools", "finance_suite.tools"):
+                __import__(mod, fromlist=["x"]).FILE_SINK = sink
+            self.blob_dir = str(self.dir / "blobs") if self.dir else "/var/lib/.oh16b/blobs"
         if self.dir:
             self.dir.mkdir(parents=True, exist_ok=True)
             self._write("pre.json", self.prof.env_to_dict(self.env))
             self._write("post.json", self.prof.env_to_dict(self.env))
-            if self.workspace:
+            if self.workspace and not self.v16b:
                 ws = workspace_bridge.snapshot(since=self.t0, exclude=[self.dir] if self.dir else [])
                 self._write("workspace_pre.json", ws); self._write("workspace_post.json", ws)
 
@@ -103,7 +115,9 @@ class State:
 
     def call(self, name: str, args: dict) -> str:
         ws, note = None, None
-        if self.workspace or self.downloads:
+        if self.v16b:
+            out, err, note = workspace_bridge.call16b(self.prof, self.env, self.runtime, name, args, self.blob_dir)
+        elif self.workspace or self.downloads:
             ws = workspace_bridge.snapshot(since=self.t0, exclude=[self.dir] if self.dir else []) if self.workspace else {}
             out, err, note = workspace_bridge.call(self.prof, self.env, self.runtime, name, args, ws, self.downloads,
                                                   self.wins)
@@ -112,7 +126,7 @@ class State:
         result = {"error": err} if err else out
         if self.dir:
             self._write("post.json", self.prof.env_to_dict(self.env))
-            if self.workspace:
+            if self.workspace and not self.v16b:
                 self._write("workspace_post.json", ws)
             line = json.dumps({"name": name, "args": args, "result": result, "error": err,
                                **({"workspace": note} if note else {})}, default=str) + "\n"
@@ -151,7 +165,11 @@ def main(argv=None) -> None:
     ap.add_argument("--schema", choices=["exact", "flat"], default=os.environ.get("AGENTDOJO_SCHEMA", "exact"))
     ap.add_argument("--workspace", action="store_true", default=os.environ.get("AGENTDOJO_WORKSPACE") == "1")
     ap.add_argument("--downloads", action="store_true", default=os.environ.get("AGENTDOJO_DOWNLOADS") == "1")
+    ap.add_argument("--v16b", action="store_true", help="step 16b: real files, archive / merge tools, blob markers")
+    ap.add_argument("--agent-uid", type=int, help="step 16b: owner of the files the tools write")
     a = ap.parse_args(argv)
+    if a.v16b:   # step 16b: the state dir and its dumps are private to root (files written for the agent are chowned)
+        os.umask(0o077)
     env, key = a.env or str(ROOT / f"{a.toolkit}_suite" / "base_environment.yaml"), None
     if a.task_file:
         import shutil, tempfile
@@ -166,7 +184,7 @@ def main(argv=None) -> None:
         fd, env = tempfile.mkstemp(suffix=".yaml", dir=a.state_dir); os.close(fd)
         Path(env).write_text(task["environment"])
     try:
-        st = State(a.toolkit, env, a.state_dir, a.workspace, a.downloads, key, a.workspace_wins)
+        st = State(a.toolkit, env, a.state_dir, a.workspace, a.downloads, key, a.workspace_wins, a.v16b, a.agent_uid)
     finally:
         if a.task_file:
             os.unlink(env)

@@ -23,6 +23,7 @@ class Table(BaseModel):
 
 
 class SQLEnvironment(TaskEnvironment):
+    current_date: str = ""   # step 16b: fixed "today" (ISO date or datetime); empty = the old fixed clock
     databases: dict[str, dict[str, Table]] = Field(default_factory=dict)
 
 
@@ -32,4 +33,8 @@ def load_environment(path: str | Path) -> SQLEnvironment:
 
 
 def env_to_dict(env: SQLEnvironment) -> dict:
-    return env.model_dump(mode="json")
+    d = env.model_dump(mode="json")
+    for k in ("current_date", "owner_email"):   # step 16b fields: absent unless set, so old dumps are unchanged
+        if d.get(k) == "":
+            d.pop(k)
+    return d

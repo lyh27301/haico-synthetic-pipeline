@@ -46,6 +46,8 @@ class Contact(BaseModel):
 
 
 class GmailEnvironment(TaskEnvironment):
+    current_date: str = ""   # step 16b: fixed "today" (ISO date or datetime); empty = the old fixed clock
+    owner_email: str = ""    # step 16b: the mailbox owner; empty = ACCOUNT_EMAIL
     inbox: list[Email] = Field(default_factory=list)
     sent: list[Email] = Field(default_factory=list)
     trash: list[Email] = Field(default_factory=list)
@@ -76,4 +78,8 @@ def load_environment(path: str | Path) -> GmailEnvironment:
 
 
 def env_to_dict(env: GmailEnvironment) -> dict:
-    return env.model_dump(mode="json")
+    d = env.model_dump(mode="json")
+    for k in ("current_date", "owner_email"):   # step 16b fields: absent unless set, so old dumps are unchanged
+        if d.get(k) == "":
+            d.pop(k)
+    return d
