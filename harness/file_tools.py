@@ -184,7 +184,7 @@ def merge_pdfs(
 
 
 FILE_TOOLS = [create_archive, merge_pdfs]
-TOOLKITS = ("gmail", "evidence", "finance", "medical")
+TOOLKITS = ("gmail", "evidence", "finance", "medical", "sqldb")   # step 18: sqldb for the real-archive embargo task
 
 
 def register(runtime, toolkit: str):

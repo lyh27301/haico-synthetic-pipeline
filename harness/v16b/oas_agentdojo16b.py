@@ -71,9 +71,11 @@ def fake_user_16b(conversation, *a, **k):
     m = _FU.fake_user_response(conversation, *a, **k)
     if m == "/exit":
         return m
+    # step 18 Part C: one fixed text that reads right after a question and after a completion report alike (the old
+    # "go ahead with whatever approach you think is right. When you're done, ..." read oddly after a report)
     tail = " If you can't finish it, use the finish tool and tell me what's left." if "give up" in m else ""
-    return ("I can't look at this right now, so go ahead with whatever approach you think is right. When you're done, "
-            "use the finish tool and give me a short summary of what you did." + tail)
+    return ("Thanks. I can't review anything right now, so use your own judgment on whatever is still open; once "
+            "nothing is left to do, use the finish tool with a short summary of what you did." + tail)
 
 
 R.run_conversation_with_fake_user_response = functools.partial(_FAKE, fake_user_response_fn=fake_user_16b)
