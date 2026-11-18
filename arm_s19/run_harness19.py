@@ -19,6 +19,7 @@ if __name__ == "__main__":
     H.setup(root)
     B = H.B
     B.invoke, B.record = H.invoke, H.record
+    H.install_v20(B)   # step 20 runner loop (the stored step-19 runs were made before it)
     B.CTX.clear()
     B.CFG["qwen35"] = ".llm_config/openai.json"
     B.NAME["qwen35"] = NAME

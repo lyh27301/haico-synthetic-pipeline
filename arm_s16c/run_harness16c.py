@@ -53,6 +53,15 @@ def invoke(ids, out_dir: Path, agent: str, bank: Path, log) -> None:
         fh.write(json.dumps({"n": len(ids), "start": t0, "end": time.time(), "rc": p.returncode}) + "\n")
 
 
+def install_v20(B) -> None:
+    """Step 20: the runner loop of harness/v16b/runner.py (a killed / cut / endpoint-lost run is an error, retried in a
+    fresh folder up to 2 times, then listed as failed; final only after harness/v16b/run_check.py passes). The stored
+    16c and 19 runs were made before this change, with arm_v08's loop."""
+    sys.path.insert(0, str(ROOT / "harness/v16b"))
+    import runner
+    runner.install(B)
+
+
 def record(t, agent, k, o, base, rerun) -> dict:
     sd = base / "agentdojo_state" / t
     u = json.loads((sd / "usage.json").read_text()) if (sd / "usage.json").exists() else {}
@@ -67,6 +76,7 @@ if __name__ == "__main__":
     i = sys.argv.index("--root"); root = (ROOT / sys.argv[i + 1]).resolve(); del sys.argv[i:i + 2]
     cfg = setup(root)
     B.invoke, B.record = invoke, record
+    install_v20(B)
     B.CTX.clear()
     os.environ["ANTHROPIC_API_KEY"] = env_key("ANTHROPIC_API_KEY")
     os.environ.update({"NPC_API_KEY": env_key("OPENAI_API_KEY"), "NPC_BASE_URL": "https://api.openai.com/v1",

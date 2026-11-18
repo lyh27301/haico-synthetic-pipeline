@@ -25,9 +25,10 @@ import base64, datetime, functools, json, os, shlex, subprocess, sys, tarfile, t
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
-sys.path.insert(0, str(HERE.parent))
+sys.path[:0] = [str(HERE.parent), str(HERE)]
 import oas_agentdojo as A  # noqa: E402  (patches run_infer for agentdojo rows)
 import state_seal  # noqa: E402
+import run_check  # noqa: E402  (step 20, harness/v16b/run_check.py)
 
 R = A.R
 AGENT_UID = 1000
@@ -111,6 +112,13 @@ def _root(ws, cmd: str, timeout=60):
 
 
 class AgentDojo16b(A.AgentDojoOASEvaluation):
+    def __init__(self, *a, **k):
+        super().__init__(*a, **k)
+        # step 20: no retries inside the framework. Its retry re-runs a failed instance (e.g. one whose agent-server was
+        # killed mid-run) in the SAME output folder and reports only the last try, so the runner never saw the failure
+        # (smoke test, arm_s20/smoke2). Every failure now comes out as an error; the runner retries in a fresh folder.
+        self.metadata.max_retries = 0
+
     def prepare_workspace(self, instance, resource_factor=1, forward_env=None):
         ws = super().prepare_workspace(instance, resource_factor, forward_env)
         if A.toolkit(instance.data) is None:
@@ -168,6 +176,19 @@ class AgentDojo16b(A.AgentDojoOASEvaluation):
             R.logger.warning(f"agentdojo usage not read: {e}")
         self._collect(workspace, sd, dest)
         A.SEALED.pop(instance.id, None)
+        # step 20: a run that does not end with the finish tool or the step cap, whose last step is cut off, or whose
+        # history disagrees with the steps the container recorded (e.g. the agent-server was killed and the SDK's REST
+        # fallback reported "finished" with a truncated history) is an error, not a finished run
+        if not getattr(out, "error", None):
+            chk = run_check.check(out.history or [], dest, self.metadata.max_iterations)
+            (dest / "run_check.json").write_text(json.dumps(chk))
+            if not chk["ok"]:
+                msg = "incomplete run (harness/v16b/run_check.py): " + "; ".join(chk["problems"])
+                R.logger.error(f"{instance.id}: {msg}")
+                try:
+                    out.error = msg
+                except Exception:  # noqa: BLE001  (frozen model)
+                    out = out.model_copy(update={"error": msg})
         return out
 
     def _collect(self, ws, sd, dest: Path):
@@ -212,6 +233,31 @@ class AgentDojo16b(A.AgentDojoOASEvaluation):
 
 R.OpenAgentSafetyEvaluation = AgentDojo16b
 
+def refuse_existing_outputs(argv: list[str]) -> None:
+    """Step 20: the evaluation framework skips every selected instance that already has a line in an output file under
+    --output-dir and re-reports the old result, so a re-run into a used folder silently re-records old runs (step 19).
+    Refuse instead: every attempt needs a fresh output folder."""
+    def arg(name):
+        return argv[argv.index(name) + 1] if name in argv else None
+    out, sel = arg("--output-dir"), arg("--select")
+    if not out or not Path(out).exists():
+        return
+    ids = {x.strip() for x in Path(sel).read_text().splitlines() if x.strip()} if sel and Path(sel).exists() else None
+    used = set()
+    for f in Path(out).rglob("output*.jsonl"):
+        for ln in f.read_text(errors="replace").splitlines():
+            try:
+                iid = json.loads(ln).get("instance_id")
+            except ValueError:
+                continue
+            if ids is None or iid in ids:
+                used.add(iid)
+    if used:
+        sys.exit(f"step 20: refusing to run: {len(used)} selected instance(s) already have output in {out} "
+                 f"({', '.join(sorted(used)[:5])}); use a fresh --output-dir")
+
+
 if __name__ == "__main__":
+    refuse_existing_outputs(sys.argv[1:])
     sys.argv[1:] = A.agent_endpoint(sys.argv[1:])
     R.main()
