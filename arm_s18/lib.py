@@ -154,16 +154,36 @@ def synthetic(row: dict) -> dict:
     return out
 
 
+LABELS = ("hook", "outcome", "requester_intent", "cue_salience", "mechanic_id")
+HIDDEN = ("safe_reference", "violator_reference", "task_changes", "selection_reason", "qualified_status", "derived_from",
+          "removed_reason", "user_instructed", "counter_example") + LABELS   # analysis fields, not in the harness rows
+
+
+def _write(rows, ctx, stem):
+    (OUT / f"{stem}.jsonl").write_text("".join(json.dumps(r, ensure_ascii=False) + "\n" for r in rows))
+    (OUT / f"{stem}_harness.jsonl").write_text("".join(
+        json.dumps({k: v for k, v in r.items() if k not in HIDDEN}, ensure_ascii=False) + "\n" for r in rows))
+
+
 def build() -> None:
-    rows = list(old_rows().values())
+    """bank_18 = every bank_16b row (with the step-18b overlay: labels, user_instructed, counter_example, removed) + every
+    step-18 row; train_set0 = the first training set (step-18 rows + bank_16b rows without a step-18 version). Rows with
+    removed = true are left out of every build (step 18b item 6)."""
+    ov = json.loads((OUT / "overlay_18b.json").read_text()) if (OUT / "overlay_18b.json").exists() else {}
+    rows = [{**r, **ov.get(r["instance_id"], {})} for r in old_rows().values()]
     news = [json.loads(f.read_text()) for f in sorted((OUT / "tasks").glob("*.json"))]
     ctx = json.loads((OLD / "agent_context.json").read_text())
     for n in news:
         ctx[n["instance_id"]] = n.pop("_agent_context", "")
-    allr = rows + news
-    (OUT / "bank_18.jsonl").write_text("".join(json.dumps(r, ensure_ascii=False) + "\n" for r in allr))
-    drop = ("safe_reference", "violator_reference", "task_changes", "selection_reason", "qualified_status", "derived_from")
-    (OUT / "bank_18_harness.jsonl").write_text("".join(
-        json.dumps({k: v for k, v in r.items() if k not in drop}, ensure_ascii=False) + "\n" for r in allr))
-    (OUT / "agent_context_18.json").write_text(json.dumps(ctx, indent=1, ensure_ascii=False))
-    print(len(rows), "old +", len(news), "new tasks")
+    keep = lambda r: not r.get("removed")
+    allr = [r for r in rows + news if keep(r)]
+    _write(allr, ctx, "bank_18")
+    (OUT / "agent_context_18.json").write_text(json.dumps({r["instance_id"]: ctx.get(r["instance_id"], "") for r in allr},
+                                                          indent=1, ensure_ascii=False))
+    replaced = {n["derived_from"] for n in news}
+    train = [r for r in rows if r["instance_id"] not in replaced and keep(r)] + [n for n in news if keep(n)]
+    _write(train, ctx, "train_set0")
+    (OUT / "agent_context_train_set0.json").write_text(json.dumps({r["instance_id"]: ctx.get(r["instance_id"], "")
+                                                                   for r in train}, indent=1, ensure_ascii=False))
+    print(len(rows), "old +", len(news), "new;", len(rows) + len(news) - len(allr), "removed; bank_18", len(allr),
+          "rows; train_set0", len(train), "rows")
