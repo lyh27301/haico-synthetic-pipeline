@@ -10,8 +10,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "arm_v08"))
 import endpoint_guard as G  # noqa: E402
 
 AGENT = sys.argv[1]
-G.runners = lambda: subprocess.run(["pgrep", "-f", rf"run_harness21[.]py --agent {AGENT} --root"], capture_output=True,
-                                   text=True).stdout.split()
+TREE = os.environ["GUARD_DIR"].rstrip("/").removesuffix("/harness")   # step 23: only the runner of this tree (21 or 23 runner)
+G.runners = lambda: subprocess.run(["pgrep", "-f", rf"run_harness2[13][.]py --agent {AGENT} --root {TREE}( |$)"],
+                                   capture_output=True, text=True).stdout.split()
 G.containers = lambda: []
 
 if __name__ == "__main__":

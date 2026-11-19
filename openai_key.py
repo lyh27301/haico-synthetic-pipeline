@@ -1,7 +1,7 @@
 """Step 23 (part 0): which OpenAI key a job uses. Once per job (process), make one minimal call with OPENAI_API_KEY
 (the group's key). If it works, use it. If it fails with the organization spend-limit / quota error (429) and
 OPENAI_API_KEY_FALLBACK (a personal key) is in .env, the whole job uses the fallback. Any other error is raised, not
-worked around. Without the fallback line, the group key is returned as before. Key values are never printed or logged:
+worked around. Worker processes of the job inherit the choice (OPENAI_KEY_CHOICE in their environment). Without the fallback line, the group key is returned as before. Key values are never printed or logged:
 only "group" / "fallback" goes to logs/openai_key.jsonl (job, choice, time).
   import openai_key; key = openai_key.get("job name"); openai_key.which() -> "group" | "fallback" | None"""
 import json, os, sys, threading, time
@@ -44,6 +44,10 @@ def get(job=None) -> str:
             group, fb = _env("OPENAI_API_KEY"), _env("OPENAI_API_KEY_FALLBACK")
             if group is None:
                 sys.exit("OPENAI_API_KEY not in .env")
+            inherited = os.environ.get("OPENAI_KEY_CHOICE")   # a worker process of a job that already chose
+            if inherited in ("group", "fallback"):
+                _choice = (inherited, fb if inherited == "fallback" and fb else group)
+                return _choice[1]
             which, key, note = "group", group, ""
             if fb:   # without a fallback line: exactly as before (no probe)
                 e = probe(group)
@@ -52,6 +56,7 @@ def get(job=None) -> str:
                         raise RuntimeError(f"OpenAI group key failed with a non-quota error (not worked around): {str(e)[:300]}")
                     which, key, note = "fallback", fb, "group key: organization spend limit / quota (429)"
             _choice = (which, key)
+            os.environ["OPENAI_KEY_CHOICE"] = which   # worker processes started by this job inherit the choice (no new probe)
             LOG.parent.mkdir(exist_ok=True)
             with open(LOG, "a") as fh:
                 fh.write(json.dumps({"job": job or Path(sys.argv[0]).name, "pid": os.getpid(), "key": which, "note": note,
