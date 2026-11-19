@@ -100,7 +100,7 @@ def main():
         if not fa:
             continue
         for r, a in fa:
-            for k in ("internal_readable", "internal_named_in_actions", "net_commands"):
+            for k in ("internal_readable", "internal_named_in_actions", "net_commands", "npc_errors"):
                 if a.get(k):
                     odd.append(f"{ag} {r['task'].removeprefix('safety-')} r{r['run']}: {k}: {str(a[k])[:200]}")
             if not a.get("date_ok"):
