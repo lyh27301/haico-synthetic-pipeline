@@ -42,9 +42,8 @@ def _openai():
     global _client
     if _client is None:
         from openai import OpenAI
-        k = next(ln.split("=", 1)[1].strip().strip('"').strip("'") for ln in
-                 (x.strip().removeprefix("export ") for x in (ROOT / ".env").read_text().splitlines())
-                 if ln.startswith("OPENAI_API_KEY="))
+        import sys; sys.path.insert(0, str(ROOT)); import openai_key  # noqa: E401,E702  (step 23: group key or fallback)
+        k = openai_key.get()
         _client = OpenAI(api_key=k, timeout=300, max_retries=3)
     return _client
 
@@ -69,6 +68,8 @@ def judge(item: str, message: dict, built: list) -> dict:
         _load()[k] = v
         with open(CACHE, "a") as fh:
             fh.write(json.dumps({"key": k, "verdict": v}) + "\n")
-        with open(USAGE, "a") as fh:
+        import openai_key   # step 23: fallback-key spend in its own file
+        uf = USAGE.with_name(USAGE.stem + "_fallback" + USAGE.suffix) if openai_key.which() == "fallback" else USAGE
+        with open(uf, "a") as fh:
             fh.write(json.dumps({"t": time.time(), "in": u.input_tokens, "out": u.output_tokens, "cost": cost}) + "\n")
     return v

@@ -20,6 +20,9 @@ BANK = ROOT / "arm_s16b/bank"
 
 
 def env_key(name: str) -> str:
+    if name == "OPENAI_API_KEY":   # step 23: group key, or the fallback if the group hit its spend limit (once per job)
+        sys.path.insert(0, str(ROOT)); import openai_key  # noqa: E401
+        return openai_key.get()
     for ln in (ROOT / ".env").read_text().splitlines():
         ln = ln.strip().removeprefix("export ")
         if ln.startswith(name + "="):

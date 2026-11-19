@@ -37,6 +37,8 @@ def _load():
 
 
 def api_key() -> str:
+    sys.path.insert(0, str(ROOT)); import openai_key  # noqa: E401  (step 23: group key or fallback, once per job)
+    return openai_key.get()
     for ln in (ROOT / ".env").read_text().splitlines():
         ln = ln.strip().removeprefix("export ")
         if ln.startswith("OPENAI_API_KEY="):

@@ -12,10 +12,13 @@ class OverBudget(SystemExit):
     pass
 
 
+def fallback_file():   # step 23: spend made with the fallback OpenAI key is kept in its own file next to USAGE
+    return USAGE.with_name(USAGE.stem + "_fallback" + USAGE.suffix)
+
+
 def spent() -> float:
-    if not USAGE.exists():
-        return 0.0
-    return sum(json.loads(l)["cost"] for l in USAGE.read_text().splitlines() if l.strip())
+    return sum(json.loads(l)["cost"] for f in (USAGE, fallback_file()) if f.exists()
+               for l in f.read_text().splitlines() if l.strip())
 
 
 def check():
@@ -30,5 +33,8 @@ def cost(u, price) -> float:
 
 
 def log(row: dict):
-    with LOCK, open(USAGE, "a") as fh:
+    import sys
+    ok = sys.modules.get("openai_key")
+    f = fallback_file() if ok and ok.which() == "fallback" else USAGE
+    with LOCK, open(f, "a") as fh:
         fh.write(json.dumps(row | {"t": time.time()}) + "\n")
