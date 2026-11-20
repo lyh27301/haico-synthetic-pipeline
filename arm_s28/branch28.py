@@ -15,7 +15,8 @@ How: a normal harness run whose agent LLM base URL points at a replay proxy in t
     block, is_error dropped). So on the wire the model sees its own call and, as that call's result, the monitor message.
     The message is never in the stored history (the SDK keeps its error text) and the branch meta carries
     strip_from_monitor_input = true.
-Agents: gpt-6-luna (OpenAI chat completions, API defaults) and claude-haiku-5-5 (Anthropic messages, API defaults;
+Agents: gpt-6-luna (the SDK's chat call, which litellm sends to the OpenAI Responses API: the proxy replays and rewrites
+in that format too; API defaults) and claude-haiku-5-5 (Anthropic messages, API defaults;
 summarized thinking display and the thinking-binding beta as step 14, so replayed thinking blocks that no longer bind are
 dropped instead of failing). NPC gpt-4o-mini as in step 21.
 Jobs: arm_s28/jobs28.json (step x condition x run), bid = <step no>*100 + <condition index 1-4>*10 + <run 1-3>.
@@ -62,7 +63,8 @@ def log_usage(provider, model, u):
     if provider == "anthropic":
         i, c = (u.get("input_tokens") or 0) + 1.25 * (u.get("cache_creation_input_tokens") or 0), u.get("cache_read_input_tokens") or 0
     else:
-        c = ((u.get("prompt_tokens_details") or {}).get("cached_tokens") or 0); i = (u.get("prompt_tokens") or 0) - c
+        c = ((u.get("prompt_tokens_details") or u.get("input_tokens_details") or {}).get("cached_tokens") or 0)
+        i = (u.get("prompt_tokens") or u.get("input_tokens") or 0) - c
     o = u.get("completion_tokens") or u.get("output_tokens") or 0
     import openai_key
     with LOCK, open(USAGE, "a") as fh:
@@ -152,6 +154,21 @@ def anthropic_response(r, model):
 
 
 
+def responses_api_response(r, model):
+    """A recorded response in the OpenAI Responses format (litellm sends gpt-6-luna's chat calls through /v1/responses)."""
+    out = []
+    if (r["text"] or "").strip():
+        out.append({"type": "message", "id": "msg_replay", "role": "assistant", "status": "completed",
+                    "content": [{"type": "output_text", "text": r["text"].strip(), "annotations": []}]})
+    for t in r["tool_calls"]:
+        out.append({"type": "function_call", "id": "fc_" + re.sub(r"\W", "", str(t["id"]))[-24:], "call_id": t["id"],
+                    "name": t["name"], "arguments": t["arguments"], "status": "completed"})
+    return {"id": "resp_replay_" + re.sub(r"\W", "", str(r["id"]))[-24:], "object": "response", "created_at": int(time.time()),
+            "status": "completed", "model": model, "output": out, "parallel_tool_calls": True, "tool_choice": "auto", "tools": [],
+            "usage": {"input_tokens": 0, "output_tokens": 0, "total_tokens": 0,
+                      "input_tokens_details": {"cached_tokens": 0}, "output_tokens_details": {"reasoning_tokens": 0}}}
+
+
 class Branch:
     def __init__(self, job, responses, K, block_id, orig_name, orig_args):
         self.job, self.responses, self.K = job, responses, K
@@ -172,6 +189,11 @@ BRANCHES = {}
 def rewrite(br, body):
     """Put the original call back and make the monitor message its result (on the wire only)."""
     msg = br.job["message"]
+    for it in body.get("input") if isinstance(body.get("input"), list) else []:
+        if it.get("type") == "function_call" and it.get("call_id") == br.block_id:
+            it["name"] = br.orig_name; it["arguments"] = br.orig_args; br.rewrites["call"] += 1
+        if it.get("type") == "function_call_output" and it.get("call_id") == br.block_id:
+            it["output"] = msg; br.rewrites["result"] += 1
     for m in body.get("messages") or []:
         if br.provider == "openai":
             for tc in m.get("tool_calls") or []:
@@ -209,6 +231,7 @@ class Handler(BaseHTTPRequestHandler):
         body = json.loads(self.rfile.read(int(self.headers.get("Content-Length") or 0)) or b"{}")
         if br is None:
             return self._send(404, {"error": "unknown branch"})
+        self.suffix = m.group(2)
         if not body.get("tools"):
             return self._forward(br, body, k=None)
         with br.lock:
@@ -218,8 +241,10 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(400, {"error": {"message": "streaming not supported by the replay proxy"}})
         if k <= br.K:
             r = br.responses[k]
-            out = anthropic_response(r, br.model) if br.provider == "anthropic" else openai_response(r, br.model)
-            br.write({"call": k, "mode": "replay" if k < br.K else "blocked", "n_messages": len(body.get("messages") or []), "response": out})
+            out = (anthropic_response(r, br.model) if br.provider == "anthropic" else
+                   responses_api_response(r, br.model) if m.group(2).endswith("/responses") else openai_response(r, br.model))
+            br.write({"call": k, "mode": "replay" if k < br.K else "blocked", "path": m.group(2),
+                      "n_messages": len(body.get("messages") or body.get("input") or []), "response": out})
             return self._send(200, out)
         return self._forward(br, rewrite(br, copy.deepcopy(body)), k=k)
 
@@ -247,7 +272,7 @@ class Handler(BaseHTTPRequestHandler):
             else:
                 body["model"] = br.model
                 hdr = {"Authorization": f"Bearer {H.env_key('OPENAI_API_KEY')}", "content-type": "application/json"}
-                url = "https://api.openai.com/v1/chat/completions"
+                url = "https://api.openai.com" + (self.suffix if self.suffix.startswith("/v1/") else "/v1" + self.suffix)
             req = urllib.request.Request(url, data=json.dumps(body).encode(), headers=hdr, method="POST")
             with urllib.request.urlopen(req, timeout=900) as resp:
                 out = json.loads(resp.read()); code = resp.status
@@ -256,8 +281,8 @@ class Handler(BaseHTTPRequestHandler):
             out, code = json.loads(e.read() or b"{}"), e.code
         except Exception as e:  # noqa: BLE001
             out, code = {"error": {"message": str(e)}}, 500
-        br.write({"call": k, "mode": "live" if k is not None else "aux", "status": code, "rewrites": dict(br.rewrites),
-                  "n_messages": len(body.get("messages") or []), "response": out})
+        br.write({"call": k, "mode": "live" if k is not None else "aux", "path": self.suffix, "status": code,
+                  "rewrites": dict(br.rewrites), "n_messages": len(body.get("messages") or body.get("input") or []), "response": out})
         self._send(code, out)
 
     def _send(self, code, obj):
@@ -312,7 +337,9 @@ def run_branch(job):
             cfg, extra = ".llm_config/openai.json", ["--anthropic", MODEL[agent], "--base-url", base]
         else:
             cfg, extra = ".llm_config/openai.json", ["--model", MODEL[agent], "--base-url", base + "/v1", "--api-key", "EMPTY"]
-        out = BR / "harness" / agent / f"b{bid}_a{attempt}"; out.mkdir(parents=True, exist_ok=True)
+        out = BR / "harness" / agent / f"b{bid}_a{attempt}"
+        import shutil
+        shutil.rmtree(out, ignore_errors=True); out.mkdir(parents=True, exist_ok=True)   # a stale attempt folder is never read
         (out / "ids.txt").write_text(t + "\n")
         env = {**os.environ, "OPENHANDS_SUPPRESS_BANNER": "1", "OAS_WORKSPACE_ROOT": str(BANK),
                "OH16B_CONTEXT": str(BANK / "agent_context_21.json"), "ANTHROPIC_API_KEY": "unused-proxy-holds-the-key"}

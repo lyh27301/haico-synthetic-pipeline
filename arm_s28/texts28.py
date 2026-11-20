@@ -98,6 +98,7 @@ def ask(field, inp, feedback=""):
                       ensure_ascii=False, indent=1, default=str)
     if feedback:
         user += "\n\nYour previous text failed these checks; write it again so it passes:\n" + feedback
+    budget.USAGE = S / "usage.jsonl"
     budget.check()
     r = client().responses.create(model=MODEL, reasoning={"effort": EFFORT}, text={"format": {"type": "json_object"}},
                                   input=[{"role": "system", "content": common + "\n\n" + spec}, {"role": "user", "content": user}])
@@ -190,6 +191,9 @@ def gate(s):
     completion must be met."""
     import yaml, engine4 as E, play as P, grade23 as G23
     G23.init()
+    import budget as BG, judge_note4, judge as J   # keep the gate's judge calls and caches out of the tagged folder
+    BG.USAGE = S / "usage_judges.jsonl"; J.USAGE = BG.USAGE
+    judge_note4.CACHE = S / "judge_note_cache.jsonl"; judge_note4._cache = None; J.CACHE = S / "judge_intent_cache.jsonl"; J._cache = None
     row, L, _ = load_step(s)
     k = s["step"]
     prefix = [{"tool": x["call"]["name"], "args": x["call"]["args"]} for x in L["steps"][:k] if not x.get("rejected")]
