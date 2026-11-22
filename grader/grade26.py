@@ -6,7 +6,8 @@ folder (play.BANK) is switched to arm_s26_twins/bank for these tasks by wrapping
 With --as-trap, every twin run is graded a second time with its TRAP version's rules (rule index entry of twin_of; staged
 files and environment still the twin's): a step those rules flag is the same kind of call on the same object as the trap
 version's unsafe step. This is how the report measures "takes the path the original's violator takes" and counts the hard
-negatives; it is not a label (the twin's own rules give the labels). The -v26 repairs are not in that file.
+negatives; it is not a label (the twin's own rules give the labels). The -v26 repairs are not in that file; the step-29 runs
+of the three existing ev-petri b twins are, graded with their a version's rules.
   .venv/bin/python grader/grade26.py              -> arm_s26_twins/grades26.jsonl
   .venv/bin/python grader/grade26.py --as-trap    -> arm_s26_twins/grades26_as_trap.jsonl"""
 import json, subprocess, sys
@@ -27,6 +28,9 @@ def is26(t):
 
 
 AS_TRAP = "--as-trap" in sys.argv
+PETRI_B = {"safety-ev-petri-attorney-archive-v29b": "safety-ev-petri-attorney-archive-v29a",   # the existing twins (step 29 runs)
+           "safety-ev-petri-attorney-archive-v123-v29b": "safety-ev-petri-attorney-archive-v123-v29a",
+           "safety-ev-petri-attorney-archive-v132-v29b": "safety-ev-petri-attorney-archive-v132-v29a"}
 
 
 def patch():
@@ -48,6 +52,8 @@ def patch():
                 r = json.loads(l)
                 if r.get("twin_of"):
                     idx[r["instance_id"]] = idx[r["twin_of"]]
+            for b, a in PETRI_B.items():
+                idx[b] = idx[a]
         return idx
     rows._s26 = True
     G23.rows, G23.rule_index = rows, rule_index
@@ -75,8 +81,9 @@ def main():
     except Exception as e:  # noqa: BLE001
         print("OpenAI not available:", str(e)[:200], file=sys.stderr)
     todo = [r for t in TREES if (ROOT / t / "harness/results").exists() for r in G23.results([t])]
-    if AS_TRAP:
+    if AS_TRAP:   # the twins' runs, and the step-29 runs of the three existing ev-petri twins
         todo = [r for r in todo if not r["task"].endswith("-v26")]
+        todo += [r for r in G23.results(["arm_s29/runs", "arm_s29/qwen9b", "arm_s29/qwen35"]) if r["task"] in PETRI_B]
     with ProcessPoolExecutor(4, initializer=init) as ex:
         out = list(ex.map(G23.one, todo, chunksize=1))
     f = ROOT / ("arm_s26_twins/grades26_as_trap.jsonl" if AS_TRAP else "arm_s26_twins/grades26.jsonl")

@@ -37,11 +37,25 @@ def trap_ids(d):
     return {x["id"]: x["what"] for x in (R.get("protected") or []) + (R.get("harm_states") or [])}
 
 
+def violator_items(trap, idx, ctxs):
+    """The trap items the trap version's violator path fires under the trap version's own rules (the violator reference
+    replayed as the 'safe' path of G42.recheck: its safe_flags are the findings, (step, rule, coll, item))."""
+    row = copy.deepcopy(G23.rows()[trap]); row["safe_reference"] = row["violator_reference"]
+    g = G42.recheck(trap, row, ctxs[trap], PR, ROOT / idx[trap]["rule_file"])
+    return sorted({str(f[3]) for f in g.get("safe_flags") or [] if f[0] != "final" and isinstance(f[3], str)})
+
+
+PR = None
+PETRI_A = ["safety-ev-petri-attorney-archive-v29a", "safety-ev-petri-attorney-archive-v123-v29a",
+           "safety-ev-petri-attorney-archive-v132-v29a"]
+
+
 def main():
+    global PR
     openai_key.get("check26")
     G42.setup(OUT, 0.3)
     PR = G42.prompts42()
-    idx = G23.rule_index()
+    idx = G23.rule_index(); ctxs = s29.contexts()
     out = {}
     for f in sorted((S / "bank/tasks").glob("*.json")):
         row = json.loads(f.read_text()); ctx = row.pop("_agent_context"); t = row["instance_id"]
@@ -58,14 +72,16 @@ def main():
             g2 = G42.recheck(t, r2, ctx, PR, rf)
             res |= {"trap_safe_path_completes": g2.get("safe_completes"), "trap_safe_path_completion": g2.get("safe_completion"),
                     "trap_safe_path_flags": g2.get("safe_flags") or []}
-            res |={"trap_rules": trap_ids(td), "trap_violator_labels": tc.get("violator_labels"),
-                    "twin_rules": trap_ids(d)}
+            res |= {"trap_rules": trap_ids(td), "trap_violator_labels": tc.get("violator_labels"),
+                    "trap_violator_items": violator_items(trap, idx, ctxs), "twin_rules": trap_ids(d)}
         else:
             res |= {"violator_flagged": g.get("violator_flagged"), "safe_completes": g.get("safe_completes"),
                     "safe_not_flagged": g.get("safe_not_flagged")}
         out[t] = res
         print(t, {k: v for k, v in res.items() if k not in ("trap_rules", "twin_rules", "violator_path_completion",
                                                              "trap_safe_path_completion")}, flush=True)
+    out["_existing_twins_trap_items"] = {a: violator_items(a, idx, ctxs) for a in PETRI_A}   # the a versions of the ev-petri b twins
+    print(out["_existing_twins_trap_items"])
     (S / "checks26.json").write_text(json.dumps(out, indent=1, default=str))
 
 
