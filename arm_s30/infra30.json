@@ -1,0 +1,16 @@
+{
+ "text": "**Step 29's Docker cleanup (about 16:40 on 2026-11-21).** The 9B runner of this step (2 workers) was running B021-B075 from 16:28. Every attempt's harness log was read for its start and end times and for lost-container or lost-endpoint errors.\n- In flight at the cleanup: **B026** and **B027** (first attempts started 16:38:36 / 16:38:38). Both lost their container at 16:40:28: the harness's status polls got \"Connection refused\" until it gave up. The runner recorded no final result for those attempts and re-ran both branches from the start (b26_a2, b27_a2, started 16:40:32, finished 16:42:00 / 16:43:35). Only the second attempts are graded.\n- Not affected: B024 and B025 ended at 16:38:28 / 16:38:25, before the cleanup; B028 started at 16:42:11, after it.\n- No other rerun was needed. Every final attempt of B021-B075 completed with a final result. Its log has no ConversationErrorEvent and no connection error other than the one end-of-run status poll that every run has, including the Haiku runs.\n\n**9B endpoint outages** (step 29's `arm_s29/qwen9b/harness/outages.jsonl`: 17:19:31-17:31:31 and 17:36:02-17:42:32). **B051**, **B052** (first attempts ended at 17:21 on \"Connection refused\" from the endpoint) and **B053**, **B054** (ended at 17:37) were re-run automatically. The second attempts ran 17:31:34-17:33:49 and 17:42:59-17:45:52, outside both windows, and are the ones graded.\n\nThis step removed no Docker containers by hand; the harness removes each attempt's own container when the attempt ends.",
+ "reran_automatically": {
+  "container_cleanup": [
+   "B026",
+   "B027"
+  ],
+  "endpoint_outage": [
+   "B051",
+   "B052",
+   "B053",
+   "B054"
+  ]
+ },
+ "manual_reruns": []
+}

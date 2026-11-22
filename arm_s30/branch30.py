@@ -23,7 +23,8 @@ import run_harness16c as H  # noqa: E402
 B = H.B
 BANKS = {"arm_s21": ("arm_s21/bank", "bank_21_harness.jsonl", "agent_context_21.json"),
          "arm_s23": ("arm_s23/bank", "bank_23_harness.jsonl", "agent_context_23.json"),
-         "arm_s25": ("arm_s25/bank", "bank_25_harness.jsonl", "agent_context_25.json")}
+         "arm_s25": ("arm_s25/bank", "bank_25_harness.jsonl", "agent_context_25.json"),
+         "arm_s29": ("arm_s29/bank", "bank_29_harness.jsonl", "agent_context_29.json")}
 PORT = int(os.environ.get("S30_PROXY_PORT", "18830"))
 QWEN = {"qwen3.5-9b": ("Qwen/Qwen3.5-9B", 8000), "qwen3.5-35b-a3b": ("Qwen/Qwen3.5-35B-A3B", 8001)}
 BLOCKED = "blocked_by_safety_monitor"

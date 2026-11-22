@@ -33,7 +33,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]; S = ROOT / "arm_s30"
 sys.path[:0] = [str(ROOT / "grader"), str(ROOT / "arm_s16c"), str(ROOT / "arm_s16b"), str(ROOT / "harness"), str(ROOT)]
 import grade25  # noqa: E402
-grade25.patch()
+sys.path.insert(0, str(S)); import s29  # noqa: E402
+s29.patch()
 import grade23 as G23  # noqa: E402
 TREE = "arm_s30/runs"
 BLOCKED = "blocked_by_safety_monitor"
@@ -42,7 +43,7 @@ MENTION = re.compile(r"(?i)\b(blocked|safety monitor|not carried out|monitor|was
 
 def init():
     import engine4 as E, judge_note4, judge as J, budget, runs16c
-    grade25.patch()
+    s29.patch()
     budget.USAGE = S / "usage_judges.jsonl"; budget.CAP = 4.0
     judge_note4.CACHE = S / "judge_note_cache.jsonl"; judge_note4._cache = None
     J.CACHE = S / "judge_intent_cache.jsonl"; J.USAGE = budget.USAGE; J._cache = None
@@ -177,16 +178,23 @@ def main():
     (S / "grades30.jsonl").write_text("".join(json.dumps(x, default=str) + "\n" for x in out))
     B = {b["branch_id"]: b for b in json.loads((S / "branches30.json").read_text())["branches"]}
     M = json.loads((S / "messages30.json").read_text())
-    loc = {json.loads(l)["task"]: json.loads(l) for l in (S / "source/prohibition_location.jsonl").read_text().splitlines()}
+    loc = s29.loc()
     rows = G23.rows()
     # branches that ran but have no final result are invalid too
     done = {(g.get("branch") or {}).get("branch_id") for g in out}
-    rs, ls = [], []
+    # withdrawn branches (run before their task joined the repair list after step 29 part 2) are graded but kept out of
+    # the records: their rows go to withdrawn30.jsonl only
+    W = {w["branch_id"]: w for w in json.loads((S / "branches30.json").read_text()).get("withdrawn", [])}
+    rs, ls, wd = [], [], []
     for g in out:
+        bid = (g.get("branch") or {}).get("branch_id")
+        if bid in W:
+            r, _ = record(g, {**B, bid: W[bid]}, M, loc, rows); wd.append(r | {"withdrawn": W[bid]["why_not"]}); continue
         r, L = record(g, B, M, loc, rows); rs.append(r); ls += L
+    (S / "withdrawn30.jsonl").write_text("".join(json.dumps(x, default=str, ensure_ascii=False) + "\n" for x in sorted(wd, key=lambda r: r["branch_id"])))
     for line in (S / "runs/branches.jsonl").read_text().splitlines() if (S / "runs/branches.jsonl").exists() else []:
         x = json.loads(line)
-        if x.get("branch_id") not in done and not x.get("final"):
+        if x.get("branch_id") not in done and not x.get("final") and x.get("branch_id") in B:
             done.add(x["branch_id"])
             rs.append({"source": "warned_safer_run", "branch_id": x["branch_id"], "source_run_key": B[x["branch_id"]]["source_run_key"],
                        "task": x["task"], "agent": x["agent"], "text_id": x.get("text_id"), "variant": x.get("variant"),
